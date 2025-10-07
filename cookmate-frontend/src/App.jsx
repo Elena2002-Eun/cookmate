@@ -3,6 +3,7 @@ import { useState } from "react";
 import api from "./services/api";
 import Recipes from "./pages/Recipes";
 import Recipe from "./pages/Recipe";
+import Favorites from "./pages/Favorites";
 
 function Search() {
   const [pantry, setPantry] = useState("flour, milk, egg");
@@ -55,6 +56,7 @@ export default function App(){
         <Route path="/" element={<Search />} />
         <Route path="/recipes" element={<Recipes />} />
         <Route path="/recipe/:id" element={<Recipe />} />
+        <Route path="/favorites" element={<Favorites />} />
       </Routes>
     </BrowserRouter>
   );

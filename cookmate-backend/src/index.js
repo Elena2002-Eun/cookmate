@@ -5,6 +5,7 @@ const cors = require('cors');
 
 const searchRoutes = require('./routes/search');
 const recipeRoutes = require('./routes/recipes');
+const favoritesRoutes = require("./routes/favorites");
 
 const app = express();
 app.use(cors());
@@ -21,5 +22,6 @@ app.get('/', (_req, res) => res.send('CookMate API running (local MongoDB)'));
 
 app.use('/api/search', searchRoutes);
 app.use('/api/recipes', recipeRoutes);
+app.use("/api/favorites", favoritesRoutes);
 
 app.listen(PORT, () => console.log(`API listening on port ${PORT}`));
