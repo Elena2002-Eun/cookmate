@@ -4,6 +4,10 @@ import api from "./services/api";
 import Recipes from "./pages/Recipes";
 import Recipe from "./pages/Recipe";
 import Favorites from "./pages/Favorites";
+import Login from "./pages/Login";
+import Signup from "./pages/Signup";
+import { lazy, Suspense } from "react";
+const Signup = lazy(() => import("./pages/Signup"));
 
 function Search() {
   const [pantry, setPantry] = useState("flour, milk, egg");
@@ -52,12 +56,28 @@ function Search() {
 export default function App(){
   return (
     <BrowserRouter>
-      <Routes>
+    <div style={{maxWidth: 900, margin:"0 auto", padding:16}}>
+        <nav style={{display:"flex", gap:12, marginBottom:16}}>
+          <Link to="/">Search</Link>
+          <Link to="/recipes">Recipes</Link>
+          <Link to="/favorites">Favorites</Link>
+          <Link to="/login">Login</Link>
+          <Link to="/signup">Signup</Link>
+        </nav>
+
+        {/* Suspense wraps the Routes */}
+        <Suspense fallback={<div>Loading...</div>}>
+        <Routes>
         <Route path="/" element={<Search />} />
         <Route path="/recipes" element={<Recipes />} />
         <Route path="/recipe/:id" element={<Recipe />} />
         <Route path="/favorites" element={<Favorites />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/signup" element={<Signup />} />
+        <Route path="/favorites" element={<Favorites />} />
       </Routes>
+      </Suspense>
+    </div>
     </BrowserRouter>
   );
 }
