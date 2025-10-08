@@ -1,35 +1,66 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import api from "../services/api";
+import { useAuth } from "../context/AuthContext";
 
 export default function Recipe() {
   const { id } = useParams();
   const [rec, setRec] = useState(null);
+  const [favIds, setFavIds] = useState([]);
   const [step, setStep] = useState(0);
   const [msg, setMsg] = useState("");
+  const { token } = useAuth();
 
-  useEffect(()=>{ api.get(`/api/recipes/${id}`).then(r=> setRec(r.data)); },[id]);
+  // load recipe
+  useEffect(() => { api.get(`/api/recipes/${id}`).then(r=> setRec(r.data)); }, [id]);
 
-  const addToFavorites = async () => {
+  // ...
+  useEffect(() => {
+  if (!id || !token) return;
+  api.post(`/api/history/view/${id}`).catch(()=>{});
+  }, [id, token]);
+
+  // load favorites if logged in
+  useEffect(() => {
+    if (!token) return;
+    api.get("/api/favorites").then(r => {
+      const ids = (r.data || []).map(x => x._id);
+      setFavIds(ids);
+    });
+  }, [token]);
+
+  const isFav = useMemo(() => favIds.includes(id), [favIds, id]);
+
+  const toggleFavorite = async () => {
+    if (!token) { setMsg("Please login first"); return; }
     try {
-      const token = localStorage.getItem("token");
-      if(!token) { setMsg("Please login first"); return; }
-      await api.post(`/api/favorites/${id}`, {}, { headers: { Authorization: `Bearer ${token}` }});
-      setMsg("Added to favorites");
-    } catch (e) {
-      setMsg("Failed to add to favorites");
+      if (isFav) {
+        await api.delete(`/api/favorites/${id}`);
+        setFavIds((prev) => prev.filter(x => x !== id));
+        setMsg("Removed from favorites");
+      } else {
+        await api.post(`/api/favorites/${id}`);
+        setFavIds((prev) => [...prev, id]);
+        setMsg("Added to favorites");
+      }
+    } catch {
+      setMsg("Failed to update favorites");
     }
   };
 
-  if(!rec) return <div style={{ padding: 16 }}>Loading...</div>;
+  if (!rec) return <div style={{ padding: 16 }}>Loading...</div>;
   const steps = rec.steps || [];
   const s = steps[step];
 
   return (
     <div style={{ maxWidth: 720, margin: "2rem auto", padding: 16 }}>
-      <h2>{rec.title}</h2>
+      <h2>
+        {rec.title}{" "}
+        <button onClick={toggleFavorite} title={isFav ? "Unfavorite" : "Favorite"}>
+          {isFav ? "★" : "☆"}
+        </button>
+      </h2>
 
-      <button onClick={addToFavorites} style={{marginTop:8}}>★ Add to Favorites</button>
       {msg && <div style={{marginTop:8, color:"#555"}}>{msg}</div>}
 
       <div><b>Ingredients:</b> {(rec.ingredients||[]).map(i=>`${i.quantity||""} ${i.name}`).join(", ")}</div>

@@ -1,13 +1,38 @@
 import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
-import { useState } from "react";
+import { useState, Suspense, lazy } from "react";
 import api from "./services/api";
+
 import Recipes from "./pages/Recipes";
 import Recipe from "./pages/Recipe";
 import Favorites from "./pages/Favorites";
 import Login from "./pages/Login";
-import Signup from "./pages/Signup";
-import { lazy, Suspense } from "react";
+import History from "./pages/History"; // <-- you were missing this import
+
+import AuthProvider, { useAuth } from "./context/AuthContext";
+import RequireAuth from "./components/RequireAuth";
+
+// Lazy load ONLY Signup (remove any normal import of Signup)
 const Signup = lazy(() => import("./pages/Signup"));
+
+function Nav() {
+  const { token, logout } = useAuth();
+  return (
+    <nav style={{ display:"flex", gap:12, marginBottom:16 }}>
+      <Link to="/">Search</Link>
+      <Link to="/recipes">Recipes</Link>
+      <Link to="/favorites">Favorites</Link>
+      <Link to="/history">History</Link>
+      {!token ? (
+        <>
+          <Link to="/login">Login</Link>
+          <Link to="/signup">Signup</Link>
+        </>
+      ) : (
+        <button onClick={logout}>Logout</button>
+      )}
+    </nav>
+  );
+}
 
 function Search() {
   const [pantry, setPantry] = useState("flour, milk, egg");
@@ -46,7 +71,9 @@ function Search() {
 
       <ul style={{ marginTop: 24 }}>
         {results.map((r,i)=>(
-          <li key={i}>{r?.recipe?.title ?? "(no title)"} — score {Number(r?.score ?? 0).toFixed(3)}</li>
+          <li key={i}>
+            {r?.recipe?.title ?? "(no title)"} — score {Number(r?.score ?? 0).toFixed(3)}
+          </li>
         ))}
       </ul>
     </div>
@@ -55,29 +82,38 @@ function Search() {
 
 export default function App(){
   return (
-    <BrowserRouter>
-    <div style={{maxWidth: 900, margin:"0 auto", padding:16}}>
-        <nav style={{display:"flex", gap:12, marginBottom:16}}>
-          <Link to="/">Search</Link>
-          <Link to="/recipes">Recipes</Link>
-          <Link to="/favorites">Favorites</Link>
-          <Link to="/login">Login</Link>
-          <Link to="/signup">Signup</Link>
-        </nav>
-
-        {/* Suspense wraps the Routes */}
-        <Suspense fallback={<div>Loading...</div>}>
-        <Routes>
-        <Route path="/" element={<Search />} />
-        <Route path="/recipes" element={<Recipes />} />
-        <Route path="/recipe/:id" element={<Recipe />} />
-        <Route path="/favorites" element={<Favorites />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/signup" element={<Signup />} />
-        <Route path="/favorites" element={<Favorites />} />
-      </Routes>
-      </Suspense>
-    </div>
-    </BrowserRouter>
+    <AuthProvider>
+      <BrowserRouter>
+        <div style={{maxWidth: 900, margin:"0 auto", padding:32}}>
+          <Nav />
+          <Suspense fallback={<div>Loading...</div>}>
+            <Routes>
+              <Route path="/" element={<Search />} />
+              <Route path="/recipes" element={<Recipes />} />
+              <Route path="/recipe/:id" element={<Recipe />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/signup" element={<Signup />} />
+              {/* Protected routes: keep ONE version each */}
+              <Route
+                path="/favorites"
+                element={
+                  <RequireAuth>
+                    <Favorites />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/history"
+                element={
+                  <RequireAuth>
+                    <History />
+                  </RequireAuth>
+                }
+              />
+            </Routes>
+          </Suspense>
+        </div>
+      </BrowserRouter>
+    </AuthProvider>
   );
 }

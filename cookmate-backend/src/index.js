@@ -7,6 +7,7 @@ const searchRoutes = require('./routes/search');
 const recipeRoutes = require('./routes/recipes');
 const favoritesRoutes = require("./routes/favorites");
 const authRoutes = require('./routes/auth');
+const historyRoutes = require("./routes/history");
 
 const app = express();
 app.use(cors());
@@ -25,5 +26,6 @@ app.use('/api/search', searchRoutes);
 app.use('/api/recipes', recipeRoutes);
 app.use("/api/favorites", favoritesRoutes);
 app.use('/api/auth', authRoutes);
+app.use("/api/history", historyRoutes);
 
 app.listen(PORT, () => console.log(`API listening on port ${PORT}`));
