@@ -10,6 +10,7 @@ import History from "./pages/History"; // <-- you were missing this import
 
 import AuthProvider, { useAuth } from "./context/AuthContext";
 import RequireAuth from "./components/RequireAuth";
+import Pantry from "./pages/Pantry";
 
 // Lazy load ONLY Signup (remove any normal import of Signup)
 const Signup = lazy(() => import("./pages/Signup"));
@@ -22,6 +23,7 @@ function Nav() {
       <Link to="/recipes">Recipes</Link>
       <Link to="/favorites">Favorites</Link>
       <Link to="/history">History</Link>
+      <Link to="/pantry">Pantry</Link>
       {!token ? (
         <>
           <Link to="/login">Login</Link>
@@ -50,6 +52,21 @@ function Search() {
     setResults(data);
   };
 
+  const { token } = useAuth();
+
+  const loadSavedPantry = async () => {
+  if (!token) { setMsg("Login to load your pantry"); return; }
+  const { data } = await api.get("/api/pantry");
+  setPantry((data || []).join(", "));
+  };
+
+  const saveAsMyPantry = async () => {
+  if (!token) { setMsg("Login to save your pantry"); return; }
+  const list = pantry.split(",").map(s => s.trim()).filter(Boolean);
+  const { data } = await api.put("/api/pantry", { pantry: list });
+  setMsg(`Saved ${data.length} items to pantry`);
+  };
+
   return (
     <div style={{ maxWidth: 720, margin: "2rem auto", padding: 16 }}>
       <h1>CookMate</h1>
@@ -66,6 +83,10 @@ function Search() {
         <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
           <input value={pantry} onChange={(e)=>setPantry(e.target.value)} />
           <button onClick={search}>Search recipes</button>
+        </div>
+        <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+          <button onClick={loadSavedPantry}>Load saved pantry</button>
+          <button onClick={saveAsMyPantry}>Save as my pantry</button>
         </div>
       </div>
 
@@ -109,6 +130,13 @@ export default function App(){
                     <History />
                   </RequireAuth>
                 }
+              />
+              <Route path="/pantry" 
+                element={
+                  <RequireAuth>
+                    <Pantry />
+                  </RequireAuth>
+                } 
               />
             </Routes>
           </Suspense>
