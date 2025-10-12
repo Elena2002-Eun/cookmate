@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { fetchTags, fetchRecipes } from "../services/recipes";
+import { fetchRecipes, fetchTagCounts } from "../services/recipes"; // 👈 updated import
 
 const DIFFICULTY_OPTIONS = ["", "easy", "medium", "hard"]; // "" = Any
 
@@ -8,26 +8,24 @@ export default function Recipes() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // read current filters from URL
   const params = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const [difficulty, setDifficulty] = useState(params.get("difficulty") || "");
   const [tag, setTag] = useState(params.get("tag") || "");
 
-  const [tags, setTags] = useState([""]); // first option will be "Any"
+  const [tagCounts, setTagCounts] = useState([]); // [{tag, count}]
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
   const [tagsLoading, setTagsLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // load tag list once
+  // load tag counts once
   useEffect(() => {
     (async () => {
       try {
         setTagsLoading(true);
-        const t = await fetchTags();
-        // prepend "" as the "Any" option
-        setTags(["", ...t]);
-      } catch (e) {
+        const list = await fetchTagCounts();
+        setTagCounts(list); // e.g. [{tag:"breakfast",count:1},...]
+      } catch {
         setError("Failed to load tags");
       } finally {
         setTagsLoading(false);
@@ -35,7 +33,7 @@ export default function Recipes() {
     })();
   }, []);
 
-  // fetch recipe list when URL search changes
+  // fetch recipes whenever the URL query changes
   useEffect(() => {
     (async () => {
       setLoading(true);
@@ -46,7 +44,7 @@ export default function Recipes() {
           tag: params.get("tag") || "",
         });
         setItems(data);
-      } catch (e) {
+      } catch {
         setError("Failed to load recipes");
       } finally {
         setLoading(false);
@@ -78,7 +76,7 @@ export default function Recipes() {
             }}
           >
             {DIFFICULTY_OPTIONS.map((opt) => (
-              <option key={opt} value={opt}>{opt || "Any"}</option>
+              <option key={opt || "any"} value={opt}>{opt || "Any"}</option>
             ))}
           </select>
         </div>
@@ -94,8 +92,11 @@ export default function Recipes() {
             }}
             disabled={tagsLoading}
           >
-            {tags.map((opt) => (
-              <option key={opt || "any"} value={opt}>{opt || "Any"}</option>
+            <option value="">{tagsLoading ? "Loading..." : "Any"}</option>
+            {tagCounts.map(tc => (
+              <option key={tc.tag} value={tc.tag}>
+                {tc.tag} ({tc.count})
+              </option>
             ))}
           </select>
         </div>

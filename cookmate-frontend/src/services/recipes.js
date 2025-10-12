@@ -17,3 +17,11 @@ export async function fetchRecipes(params = {}) {
   const { data } = await api.get(url);
   return Array.isArray(data) ? data : [];
 }
+
+export async function fetchTagCounts() {
+  const { data } = await api.get("/api/recipes/tag-counts");
+  // normalize to { tag, count }[]
+  return Array.isArray(data) ? data
+    .map(x => ({ tag: String(x.tag), count: Number(x.count || 0) }))
+    : [];
+}
