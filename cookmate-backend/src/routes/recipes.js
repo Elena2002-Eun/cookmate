@@ -41,6 +41,47 @@ router.get('/tags', async (_req, res) => {
   }
 });
 
+// GET /api/recipes/tag-counts  -> [{ tag: "vegetarian", count: 12 }, ...]
+router.get('/tag-counts', async (_req, res) => {
+  try {
+    const result = await Recipe.aggregate([
+      // make sure tags exists and is an array
+      { $project: { tags: { $ifNull: ["$tags", []] } } },
+      { $unwind: "$tags" },
+
+      // coerce any non-strings; trim; lower-case; skip empties
+      {
+        $project: {
+          tag: {
+            $toLower: {
+              $trim: {
+                input: {
+                  $cond: [
+                    { $eq: [{ $type: "$tags" }, "string"] },
+                    "$tags",
+                    { $toString: "$tags" }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      { $match: { tag: { $ne: "" } } },
+
+      // group and count
+      { $group: { _id: "$tag", count: { $sum: 1 } } },
+      { $project: { _id: 0, tag: "$_id", count: 1 } },
+      { $sort: { tag: 1 } }
+    ]);
+
+    res.json(result);
+  } catch (err) {
+    console.error('tag-counts route error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // GET /api/recipes/:id  -> full recipe (with steps)
 router.get('/:id', async (req, res) => {
   const rec = await Recipe.findById(req.params.id);
