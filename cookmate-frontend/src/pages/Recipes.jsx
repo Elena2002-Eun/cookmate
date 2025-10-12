@@ -1,47 +1,65 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import api from "../services/api";
-import { toQuery } from "../services/query";
+import { fetchTags, fetchRecipes } from "../services/recipes";
 
-const DIFFICULTY_OPTIONS = ["", "easy", "medium", "hard"];
-const TAG_OPTIONS = ["", "breakfast", "vegetarian", "dinner"]; // extend as you add more
+const DIFFICULTY_OPTIONS = ["", "easy", "medium", "hard"]; // "" = Any
 
 export default function Recipes() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Read initial filters from URL
+  // read current filters from URL
   const params = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const [difficulty, setDifficulty] = useState(params.get("difficulty") || "");
   const [tag, setTag] = useState(params.get("tag") || "");
+
+  const [tags, setTags] = useState([""]); // first option will be "Any"
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [tagsLoading, setTagsLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const fetchRecipes = async (opts = {}) => {
-    setLoading(true);
-    try {
-      const query = toQuery(opts);
-      const url = query ? `/api/recipes/all?${query}` : `/api/recipes/all`;
-      const { data } = await api.get(url);
-      setItems(data);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // On mount or when URL search changes (back/forward), refetch
+  // load tag list once
   useEffect(() => {
-    fetchRecipes({
-      difficulty: params.get("difficulty") || "",
-      tag: params.get("tag") || "",
-    });
+    (async () => {
+      try {
+        setTagsLoading(true);
+        const t = await fetchTags();
+        // prepend "" as the "Any" option
+        setTags(["", ...t]);
+      } catch (e) {
+        setError("Failed to load tags");
+      } finally {
+        setTagsLoading(false);
+      }
+    })();
+  }, []);
+
+  // fetch recipe list when URL search changes
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      setError("");
+      try {
+        const data = await fetchRecipes({
+          difficulty: params.get("difficulty") || "",
+          tag: params.get("tag") || "",
+        });
+        setItems(data);
+      } catch (e) {
+        setError("Failed to load recipes");
+      } finally {
+        setLoading(false);
+      }
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.search]);
 
-  // When a filter changes, push it to the URL and trigger fetch via effect
   const applyFilters = (next) => {
-    const query = toQuery(next);
-    navigate({ pathname: "/recipes", search: query ? `?${query}` : "" }, { replace: false });
+    const q = new URLSearchParams();
+    if (next.difficulty) q.set("difficulty", next.difficulty);
+    if (next.tag) q.set("tag", next.tag);
+    navigate({ pathname: "/recipes", search: q.toString() ? `?${q}` : "" }, { replace: false });
   };
 
   return (
@@ -74,14 +92,16 @@ export default function Recipes() {
               setTag(v);
               applyFilters({ difficulty, tag: v });
             }}
+            disabled={tagsLoading}
           >
-            {TAG_OPTIONS.map((opt) => (
-              <option key={opt} value={opt}>{opt || "Any"}</option>
+            {tags.map((opt) => (
+              <option key={opt || "any"} value={opt}>{opt || "Any"}</option>
             ))}
           </select>
         </div>
       </div>
 
+      {error && <div style={{ color: "crimson", marginBottom: 8 }}>{error}</div>}
       {loading && <div>Loading…</div>}
 
       <ul style={{ marginTop: 12 }}>

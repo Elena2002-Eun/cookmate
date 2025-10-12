@@ -31,6 +31,16 @@ router.get('/all', async (req, res) => {
   }
 });
 
+router.get('/tags', async (_req, res) => {
+  try {
+    const tags = await Recipe.distinct('tags');
+    res.json(tags.sort());
+  } catch (err) {
+    console.error('tags route error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // GET /api/recipes/:id  -> full recipe (with steps)
 router.get('/:id', async (req, res) => {
   const rec = await Recipe.findById(req.params.id);
