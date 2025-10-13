@@ -11,6 +11,7 @@ import History from "./pages/History"; // <-- you were missing this import
 import AuthProvider, { useAuth } from "./context/AuthContext";
 import RequireAuth from "./components/RequireAuth";
 import Pantry from "./pages/Pantry";
+import NotFound from "./pages/NotFound";
 
 // Lazy load ONLY Signup (remove any normal import of Signup)
 const Signup = lazy(() => import("./pages/Signup"));
@@ -106,40 +107,47 @@ export default function App(){
     <AuthProvider>
       <BrowserRouter>
         <div style={{maxWidth: 900, margin:"0 auto", padding:32}}>
-          <Nav />
-          <Suspense fallback={<div>Loading...</div>}>
-            <Routes>
-              <Route path="/" element={<Search />} />
-              <Route path="/recipes" element={<Recipes />} />
-              <Route path="/recipe/:id" element={<Recipe />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/signup" element={<Signup />} />
-              {/* Protected routes: keep ONE version each */}
-              <Route
-                path="/favorites"
-                element={
-                  <RequireAuth>
-                    <Favorites />
-                  </RequireAuth>
-                }
-              />
-              <Route
-                path="/history"
-                element={
-                  <RequireAuth>
-                    <History />
-                  </RequireAuth>
-                }
-              />
-              <Route path="/pantry" 
-                element={
-                  <RequireAuth>
-                    <Pantry />
-                  </RequireAuth>
-                } 
-              />
-            </Routes>
-          </Suspense>
+        {/* 👇 NEW: page shell with Tailwind */}
+        <div className="min-h-screen bg-gray-50 text-gray-900 p-8">
+          {/* 👇 NEW: replaces your old inline style container */}
+          <div className="max-w-5xl mx-auto">
+            <Nav />
+            <Suspense fallback={<div>Loading...</div>}>
+              <Routes>
+                <Route path="/" element={<Search />} />
+                <Route path="/recipes" element={<Recipes />} />
+                <Route path="/recipe/:id" element={<Recipe />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/signup" element={<Signup />} />
+                <Route path="*" element={<NotFound />} />
+                <Route
+                  path="/favorites"
+                  element={
+                    <RequireAuth>
+                      <Favorites />
+                    </RequireAuth>
+                  }
+                />
+                <Route
+                  path="/history"
+                  element={
+                    <RequireAuth>
+                      <History />
+                    </RequireAuth>
+                  }
+                />
+                <Route
+                  path="/pantry"
+                  element={
+                    <RequireAuth>
+                      <Pantry />
+                    </RequireAuth>
+                  }
+                />
+              </Routes>
+            </Suspense>
+          </div>
+        </div>
         </div>
       </BrowserRouter>
     </AuthProvider>

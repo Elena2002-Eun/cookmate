@@ -75,14 +75,10 @@ export default function Recipe() {
       </button>
 
       <h2>
-        {rec.title}{" "}
-        <button
-          onClick={toggleFavorite}
-          title={isFav ? "Unfavorite" : "Favorite"}
-          disabled={favBusy}
-        >
-          {isFav ? "★" : "☆"}
-        </button>
+      {rec.title}{" "}
+      <button onClick={toggleFavorite} title={isFav ? "Unfavorite" : "Favorite"}>
+      {isFav ? "★" : "☆"}
+      </button>
       </h2>
 
       <div style={{ color: "#666", marginBottom: 8 }}>

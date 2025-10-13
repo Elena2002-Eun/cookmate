@@ -15,20 +15,19 @@ const app = express();
 
 // --- flexible CORS allowlist (for localhost + Vercel) ---
 const allowList = (process.env.CORS_ORIGINS || "")
-  .split(",")
-  .map(s => s.trim())
-  .filter(Boolean);
+  .split(",").map(s => s.trim()).filter(Boolean);
 
 const corsOptions = {
   origin(origin, cb) {
-    if (!origin) return cb(null, true);                 // curl / same-origin
-    if (allowList.includes(origin)) return cb(null, true);
+    if (!origin) return cb(null, true);
     try {
-      if (/\.vercel\.app$/.test(new URL(origin).hostname)) return cb(null, true);
+      const host = new URL(origin).hostname;
+      if (allowList.includes(origin)) return cb(null, true);
+      if (/\.vercel\.app$/.test(host)) return cb(null, true);
     } catch {}
     return cb(new Error("Not allowed by CORS"));
   },
-  credentials: false, // JWT in headers, not cookies
+  credentials: false,
 };
 app.use(cors(corsOptions));
 app.use(express.json());
