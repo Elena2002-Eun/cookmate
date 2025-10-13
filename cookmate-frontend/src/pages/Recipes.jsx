@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { fetchRecipes, fetchTagCounts } from "../services/recipes"; // 👈 updated import
+import { Link } from "react-router-dom";
 
 const DIFFICULTY_OPTIONS = ["", "easy", "medium", "hard"]; // "" = Any
 
@@ -106,12 +107,13 @@ export default function Recipes() {
       {loading && <div>Loading…</div>}
 
       <ul style={{ marginTop: 12 }}>
-        {items.map((r) => (
-          <li key={r._id}>
-            <strong>{r.title}</strong> — {r.difficulty || "n/a"} — {Array.isArray(r.tags) ? r.tags.join(", ") : ""}
-          </li>
-        ))}
-        {!loading && items.length === 0 && <li>No recipes found.</li>}
+      {items.map((r) => (
+      <li key={r._id}>
+      <Link to={`/recipe/${r._id}`}><strong>{r.title}</strong></Link>
+      {" — "}{r.difficulty || "n/a"} — {Array.isArray(r.tags) ? r.tags.join(", ") : ""}
+      </li>
+      ))}
+      {!loading && items.length === 0 && <li>No recipes found.</li>}
       </ul>
     </div>
   );

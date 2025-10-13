@@ -1,38 +1,68 @@
 const express = require("express");
-const User = require("../models/User");
-const authMiddleware = require("../middleware/auth");
-
+const mongoose = require("mongoose");
 const router = express.Router();
+const User = require("../models/User");
+const Recipe = require("../models/Recipe");
+const auth = require("../middleware/auth");
 
-// Add recipe to favorites
-router.post("/:recipeId", authMiddleware, async (req, res) => {
+// GET /api/favorites -> list favorites (populated)
+router.get("/", auth, async (req, res) => {
   try {
-    const { recipeId } = req.params;
-    await User.findByIdAndUpdate(req.userId, { $addToSet: { favorites: recipeId } });
-    res.json({ msg: "Added to favorites" });
+    const user = await User.findById(req.user.id)
+      .populate({ path: "favorites", select: "title tags difficulty" })
+      .lean();
+
+    if (!user) return res.status(401).json({ error: "User not found" });
+
+    const favorites = Array.isArray(user.favorites) ? user.favorites : [];
+    return res.json(favorites);
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    console.error("favorites GET error:", err);
+    return res.status(500).json({ error: "Server error" });
   }
 });
 
-// Get all favorites
-router.get("/", authMiddleware, async (req, res) => {
+// POST /api/favorites/:id -> add a favorite
+router.post("/:id", auth, async (req, res) => {
   try {
-    const user = await User.findById(req.userId).populate("favorites");
-    res.json(user.favorites);
+    const { id } = req.params;
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({ error: "Invalid recipe id" });
+    }
+    const recipe = await Recipe.findById(id).lean();
+    if (!recipe) return res.status(404).json({ error: "Recipe not found" });
+
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(401).json({ error: "User not found" });
+
+    user.favorites = Array.isArray(user.favorites) ? user.favorites : [];
+
+    if (!user.favorites.some(rid => String(rid) === String(id))) {
+      user.favorites.push(id);
+      await user.save();
+    }
+    return res.json({ ok: true });
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    console.error("favorites POST error:", err);
+    return res.status(500).json({ error: "Server error" });
   }
 });
 
-// Remove from favorites
-router.delete("/:recipeId", authMiddleware, async (req, res) => {
+// DELETE /api/favorites/:id -> remove
+router.delete("/:id", auth, async (req, res) => {
   try {
-    const { recipeId } = req.params;
-    await User.findByIdAndUpdate(req.userId, { $pull: { favorites: recipeId } });
-    res.json({ msg: "Removed from favorites" });
+    const { id } = req.params;
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(401).json({ error: "User not found" });
+
+    user.favorites = Array.isArray(user.favorites) ? user.favorites : [];
+    user.favorites = user.favorites.filter(rid => String(rid) !== String(id));
+    await user.save();
+
+    return res.json({ ok: true });
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    console.error("favorites DELETE error:", err);
+    return res.status(500).json({ error: "Server error" });
   }
 });
 
