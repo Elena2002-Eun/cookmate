@@ -1,3 +1,4 @@
+// src/App.jsx
 import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
 import { useState, Suspense, lazy } from "react";
 import api from "./services/api";
@@ -6,34 +7,50 @@ import Recipes from "./pages/Recipes";
 import Recipe from "./pages/Recipe";
 import Favorites from "./pages/Favorites";
 import Login from "./pages/Login";
-import History from "./pages/History"; // <-- you were missing this import
-
-import AuthProvider, { useAuth } from "./context/AuthContext";
-import RequireAuth from "./components/RequireAuth";
+import History from "./pages/History";
 import Pantry from "./pages/Pantry";
 import NotFound from "./pages/NotFound";
 
-// Lazy load ONLY Signup (remove any normal import of Signup)
+import AuthProvider, { useAuth } from "./context/AuthContext";
+import RequireAuth from "./components/RequireAuth";
+
+// Lazy load ONLY Signup
 const Signup = lazy(() => import("./pages/Signup"));
 
 function Nav() {
   const { token, logout } = useAuth();
   return (
-    <nav style={{ display:"flex", gap:12, marginBottom:16 }}>
-      <Link to="/">Search</Link>
-      <Link to="/recipes">Recipes</Link>
-      <Link to="/favorites">Favorites</Link>
-      <Link to="/history">History</Link>
-      <Link to="/pantry">Pantry</Link>
-      {!token ? (
-        <>
-          <Link to="/login">Login</Link>
-          <Link to="/signup">Signup</Link>
-        </>
-      ) : (
-        <button onClick={logout}>Logout</button>
-      )}
-    </nav>
+    <header className="border-b bg-white">
+      <div className="mx-auto max-w-5xl px-4 py-3 flex items-center justify-between">
+        <nav className="flex items-center gap-4 text-sm">
+          <Link className="font-semibold text-gray-900 hover:text-blue-600" to="/">CookMate</Link>
+          <Link className="text-gray-600 hover:text-blue-600" to="/recipes">Recipes</Link>
+          <Link className="text-gray-600 hover:text-blue-600" to="/favorites">Favorites</Link>
+          <Link className="text-gray-600 hover:text-blue-600" to="/history">History</Link>
+          <Link className="text-gray-600 hover:text-blue-600" to="/pantry">Pantry</Link>
+        </nav>
+        <div className="flex items-center gap-3">
+          {!token ? (
+            <>
+              <Link className="text-gray-600 hover:text-blue-600" to="/login">Login</Link>
+              <Link
+                className="inline-flex items-center rounded-md bg-blue-600 px-3 py-1.5 text-white text-sm font-medium hover:bg-blue-700"
+                to="/signup"
+              >
+                Signup
+              </Link>
+            </>
+          ) : (
+            <button
+              onClick={logout}
+              className="inline-flex items-center rounded-md border px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            >
+              Logout
+            </button>
+          )}
+        </div>
+      </div>
+    </header>
   );
 }
 
@@ -41,6 +58,7 @@ function Search() {
   const [pantry, setPantry] = useState("flour, milk, egg");
   const [results, setResults] = useState([]);
   const [msg, setMsg] = useState("");
+  const { token } = useAuth();
 
   const checkApi = async () => {
     const { data } = await api.get("/");
@@ -53,45 +71,68 @@ function Search() {
     setResults(data);
   };
 
-  const { token } = useAuth();
-
   const loadSavedPantry = async () => {
-  if (!token) { setMsg("Login to load your pantry"); return; }
-  const { data } = await api.get("/api/pantry");
-  setPantry((data || []).join(", "));
+    if (!token) { setMsg("Login to load your pantry"); return; }
+    const { data } = await api.get("/api/pantry");
+    setPantry((data || []).join(", "));
   };
 
   const saveAsMyPantry = async () => {
-  if (!token) { setMsg("Login to save your pantry"); return; }
-  const list = pantry.split(",").map(s => s.trim()).filter(Boolean);
-  const { data } = await api.put("/api/pantry", { pantry: list });
-  setMsg(`Saved ${data.length} items to pantry`);
+    if (!token) { setMsg("Login to save your pantry"); return; }
+    const list = pantry.split(",").map(s => s.trim()).filter(Boolean);
+    const { data } = await api.put("/api/pantry", { pantry: list });
+    setMsg(`Saved ${data.length} items to pantry`);
   };
 
   return (
-    <div style={{ maxWidth: 720, margin: "2rem auto", padding: 16 }}>
-      <h1>CookMate</h1>
-      <div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
-        <Link to="/">Search</Link>
-        <Link to="/recipes">Recipes</Link>
+    <div className="max-w-3xl mx-auto p-4">
+      <h1 className="text-2xl font-semibold mb-3">CookMate</h1>
+
+      <div className="flex gap-3 mb-3 text-sm">
+        <Link className="text-gray-600 hover:text-blue-600" to="/">Search</Link>
+        <Link className="text-gray-600 hover:text-blue-600" to="/recipes">Recipes</Link>
       </div>
 
-      <button onClick={checkApi}>Check API</button>
-      <div>{msg}</div>
+      <button
+        onClick={checkApi}
+        className="inline-flex items-center rounded-md border px-3 py-1.5 text-sm hover:bg-gray-50"
+      >
+        Check API
+      </button>
+      <div className="mt-2 text-sm text-gray-700">{msg}</div>
 
-      <div style={{ marginTop: 24 }}>
-        <label>Your ingredients:</label>
-        <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-          <input value={pantry} onChange={(e)=>setPantry(e.target.value)} />
-          <button onClick={search}>Search recipes</button>
+      <div className="mt-6">
+        <label className="block text-sm font-medium text-gray-700">Your ingredients:</label>
+        <div className="flex gap-2 mt-2">
+          <input
+            className="flex-1 rounded-md border px-3 py-2 text-sm"
+            value={pantry}
+            onChange={(e)=>setPantry(e.target.value)}
+          />
+          <button
+            onClick={search}
+            className="inline-flex items-center rounded-md bg-blue-600 px-3 py-2 text-white text-sm hover:bg-blue-700"
+          >
+            Search recipes
+          </button>
         </div>
-        <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-          <button onClick={loadSavedPantry}>Load saved pantry</button>
-          <button onClick={saveAsMyPantry}>Save as my pantry</button>
+        <div className="flex gap-2 mt-2">
+          <button
+            onClick={loadSavedPantry}
+            className="inline-flex items-center rounded-md border px-3 py-1.5 text-sm hover:bg-gray-50"
+          >
+            Load saved pantry
+          </button>
+          <button
+            onClick={saveAsMyPantry}
+            className="inline-flex items-center rounded-md border px-3 py-1.5 text-sm hover:bg-gray-50"
+          >
+            Save as my pantry
+          </button>
         </div>
       </div>
 
-      <ul style={{ marginTop: 24 }}>
+      <ul className="mt-6 space-y-2 text-sm">
         {results.map((r,i)=>(
           <li key={i}>
             {r?.recipe?.title ?? "(no title)"} — score {Number(r?.score ?? 0).toFixed(3)}
@@ -106,12 +147,9 @@ export default function App(){
   return (
     <AuthProvider>
       <BrowserRouter>
-        <div style={{maxWidth: 900, margin:"0 auto", padding:32}}>
-        {/* 👇 NEW: page shell with Tailwind */}
-        <div className="min-h-screen bg-gray-50 text-gray-900 p-8">
-          {/* 👇 NEW: replaces your old inline style container */}
-          <div className="max-w-5xl mx-auto">
-            <Nav />
+        <div className="min-h-screen bg-gray-50 text-gray-900">
+          <Nav />
+          <main className="mx-auto max-w-5xl px-4 py-6">
             <Suspense fallback={<div>Loading...</div>}>
               <Routes>
                 <Route path="/" element={<Search />} />
@@ -119,7 +157,6 @@ export default function App(){
                 <Route path="/recipe/:id" element={<Recipe />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/signup" element={<Signup />} />
-                <Route path="*" element={<NotFound />} />
                 <Route
                   path="/favorites"
                   element={
@@ -144,10 +181,10 @@ export default function App(){
                     </RequireAuth>
                   }
                 />
+                <Route path="*" element={<NotFound />} />
               </Routes>
             </Suspense>
-          </div>
-        </div>
+          </main>
         </div>
       </BrowserRouter>
     </AuthProvider>

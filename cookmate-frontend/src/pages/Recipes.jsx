@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
-import { fetchRecipes, fetchTagCounts } from "../services/recipes"; // 👈 updated import
-import { Link } from "react-router-dom";
+import { useLocation, useNavigate, Link } from "react-router-dom";
+import { fetchRecipes, fetchTagCounts } from "../services/recipes";
 
 const DIFFICULTY_OPTIONS = ["", "easy", "medium", "hard"]; // "" = Any
 
@@ -13,19 +12,19 @@ export default function Recipes() {
   const [difficulty, setDifficulty] = useState(params.get("difficulty") || "");
   const [tag, setTag] = useState(params.get("tag") || "");
 
-  const [tagCounts, setTagCounts] = useState([]); // [{tag, count}]
+  const [tagCounts, setTagCounts] = useState([]);
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
   const [tagsLoading, setTagsLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // load tag counts once
+  // Load tag counts once
   useEffect(() => {
     (async () => {
       try {
         setTagsLoading(true);
         const list = await fetchTagCounts();
-        setTagCounts(list); // e.g. [{tag:"breakfast",count:1},...]
+        setTagCounts(list);
       } catch {
         setError("Failed to load tags");
       } finally {
@@ -34,7 +33,7 @@ export default function Recipes() {
     })();
   }, []);
 
-  // fetch recipes whenever the URL query changes
+  // Fetch recipes whenever query changes
   useEffect(() => {
     (async () => {
       setLoading(true);
@@ -62,13 +61,15 @@ export default function Recipes() {
   };
 
   return (
-    <div style={{ maxWidth: 900, margin: "0 auto", padding: 16 }}>
-      <h2>Recipes</h2>
+    <div className="max-w-5xl mx-auto p-4">
+      <h2 className="text-2xl font-semibold mb-4">Recipes</h2>
 
-      <div style={{ display: "flex", gap: 12, marginBottom: 16 }}>
+      {/* Filters */}
+      <div className="flex flex-wrap items-end gap-4 mb-4">
         <div>
-          <label>Difficulty</label><br />
+          <label className="block text-sm font-medium text-gray-700 mb-1">Difficulty</label>
           <select
+            className="rounded-md border px-3 py-2 text-sm"
             value={difficulty}
             onChange={(e) => {
               const v = e.target.value;
@@ -77,14 +78,17 @@ export default function Recipes() {
             }}
           >
             {DIFFICULTY_OPTIONS.map((opt) => (
-              <option key={opt || "any"} value={opt}>{opt || "Any"}</option>
+              <option key={opt || "any"} value={opt}>
+                {opt || "Any"}
+              </option>
             ))}
           </select>
         </div>
 
         <div>
-          <label>Tag</label><br />
+          <label className="block text-sm font-medium text-gray-700 mb-1">Tag</label>
           <select
+            className="rounded-md border px-3 py-2 text-sm"
             value={tag}
             onChange={(e) => {
               const v = e.target.value;
@@ -94,7 +98,7 @@ export default function Recipes() {
             disabled={tagsLoading}
           >
             <option value="">{tagsLoading ? "Loading..." : "Any"}</option>
-            {tagCounts.map(tc => (
+            {tagCounts.map((tc) => (
               <option key={tc.tag} value={tc.tag}>
                 {tc.tag} ({tc.count})
               </option>
@@ -103,18 +107,30 @@ export default function Recipes() {
         </div>
       </div>
 
-      {error && <div style={{ color: "crimson", marginBottom: 8 }}>{error}</div>}
+      {/* Results */}
+      {error && <div className="text-red-600 mb-2">{error}</div>}
       {loading && <div>Loading…</div>}
 
-      <ul style={{ marginTop: 12 }}>
-      {items.map((r) => (
-      <li key={r._id}>
-      <Link to={`/recipe/${r._id}`}><strong>{r.title}</strong></Link>
-      {" — "}{r.difficulty || "n/a"} — {Array.isArray(r.tags) ? r.tags.join(", ") : ""}
-      </li>
-      ))}
-      {!loading && items.length === 0 && <li>No recipes found.</li>}
+      <ul className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-3">
+        {items.map((r) => (
+          <li key={r._id}>
+            <Link
+              to={`/recipe/${r._id}`}
+              className="block rounded-lg border bg-white p-4 hover:shadow-md transition"
+            >
+              <div className="font-semibold">{r.title}</div>
+              <div className="text-sm text-gray-600 mt-1">
+                {r.difficulty || "n/a"} •{" "}
+                {Array.isArray(r.tags) ? r.tags.join(", ") : ""}
+              </div>
+            </Link>
+          </li>
+        ))}
       </ul>
+
+      {!loading && items.length === 0 && (
+        <div className="text-gray-600 mt-3">No recipes found.</div>
+      )}
     </div>
   );
 }
