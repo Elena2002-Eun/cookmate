@@ -1,5 +1,5 @@
 // src/App.jsx
-import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Link, useNavigate } from "react-router-dom";
 import { useState, Suspense, lazy } from "react";
 import api from "./services/api";
 
@@ -14,12 +14,30 @@ import NotFound from "./pages/NotFound";
 import AuthProvider, { useAuth } from "./context/AuthContext";
 import RequireAuth from "./components/RequireAuth";
 import Footer from "./components/Footer";
+import useToast from "./hooks/useToast";
 
 // Lazy load ONLY Signup
 const Signup = lazy(() => import("./pages/Signup"));
 
 function Nav() {
   const { token, logout } = useAuth();
+  const navigate = useNavigate();
+  const { show, ToastPortal } = useToast(2000);
+
+  const handleLogout = () => {
+    // 1) clear auth
+    logout();
+
+    // 2) toast now
+    show("Logged out");
+
+    // 3) set a flash for Login page (your Login already reads localStorage.flash)
+    localStorage.setItem("flash", "You’ve been logged out");
+
+    // 4) redirect (home or login — your call)
+    navigate("/login", { replace: true });
+  };
+
   return (
     <header className="border-b bg-white">
       <div className="mx-auto max-w-5xl px-4 py-3 flex items-center justify-between">
@@ -43,7 +61,7 @@ function Nav() {
             </>
           ) : (
             <button
-              onClick={logout}
+              onClick={handleLogout}
               className="inline-flex items-center rounded-md border px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
             >
               Logout
@@ -51,6 +69,7 @@ function Nav() {
           )}
         </div>
       </div>
+      <ToastPortal />
     </header>
   );
 }
@@ -59,11 +78,14 @@ function Search() {
   const [pantry, setPantry] = useState("flour, milk, egg");
   const [results, setResults] = useState([]);
   const [msg, setMsg] = useState("");
+  const [saving, setSaving] = useState(false);
   const { token } = useAuth();
+  const { show, ToastPortal } = useToast(2000); // 👈 add
 
   const checkApi = async () => {
     const { data } = await api.get("/");
     setMsg(typeof data === "string" ? data : JSON.stringify(data));
+    show("API is reachable");
   };
 
   const search = async () => {
@@ -73,17 +95,32 @@ function Search() {
   };
 
   const loadSavedPantry = async () => {
-    if (!token) { setMsg("Login to load your pantry"); return; }
-    const { data } = await api.get("/api/pantry");
-    setPantry((data || []).join(", "));
+  if (!token) {
+    setMsg("Login to load your pantry");
+    show("Please login to load pantry");
+    return;
+  }
+  const { data } = await api.get("/api/pantry");
+  setPantry((data || []).join(", "));
+  show("Pantry loaded");
   };
 
   const saveAsMyPantry = async () => {
-    if (!token) { setMsg("Login to save your pantry"); return; }
-    const list = pantry.split(",").map(s => s.trim()).filter(Boolean);
+  if (!token) { show("Login to save your pantry"); return; }
+  const list = pantry.split(",").map(s => s.trim()).filter(Boolean);
+  try {
+    setSaving(true);
     const { data } = await api.put("/api/pantry", { pantry: list });
-    setMsg(`Saved ${data.length} items to pantry`);
+    const count = Array.isArray(data) ? data.length : (data?.length ?? list.length);
+    setMsg(`Saved ${count} items to pantry`);
+    show("Pantry saved");
+  } catch {
+    show("Failed to save pantry");
+  } finally {
+    setSaving(false);
+  }
   };
+
 
   return (
     <div className="max-w-5xl mx-auto p-4">
@@ -114,9 +151,10 @@ function Search() {
         </button>
         <button
           onClick={saveAsMyPantry}
-          className="rounded-md border px-3 py-1.5 text-sm hover:bg-gray-50"
-        >
-          Save as my pantry
+          disabled={saving}
+          className="inline-flex items-center rounded-md border px-3 py-1.5 text-sm hover:bg-gray-50 disabled:opacity-60"
+          >
+          {saving ? "Saving…" : "Save as my pantry"}
         </button>
         <button
           onClick={checkApi}
@@ -144,6 +182,8 @@ function Search() {
       {!results.length && (
         <div className="text-gray-500 mt-4">Start by entering your pantry above.</div>
       )}
+      {/* Toast outlet for the Search box */}
+      <ToastPortal />
     </div>
   );
 }
