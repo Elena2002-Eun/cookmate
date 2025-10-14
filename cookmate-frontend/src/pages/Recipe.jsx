@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "../services/api";
 import { useAuth } from "../context/AuthContext";
+import Toast from "../components/Toast"; // 👈 add this
 
 export default function Recipe() {
   const { id } = useParams();
@@ -13,6 +14,7 @@ export default function Recipe() {
   const [step, setStep] = useState(0);
   const [msg, setMsg] = useState("");
   const [favBusy, setFavBusy] = useState(false);
+  const [toast, setToast] = useState(""); // 👈 add this
 
   // Load recipe
   useEffect(() => {
@@ -50,11 +52,11 @@ export default function Recipe() {
       if (isFav) {
         await api.delete(`/api/favorites/${id}`);
         setFavIds((prev) => prev.filter((x) => x !== id));
-        setMsg("Removed from favorites");
+        setToast("Removed from favorites");
       } else {
         await api.post(`/api/favorites/${id}`);
         setFavIds((prev) => [...prev, id]);
-        setMsg("Added to favorites");
+        setToast("Added to favorites");
       }
     } catch {
       setMsg("Failed to update favorites");
@@ -138,6 +140,8 @@ export default function Recipe() {
           </button>
         </div>
       )}
+      {/* Toast */}
+      <Toast message={toast} onClose={() => setToast("")} />
     </div>
   );
 }

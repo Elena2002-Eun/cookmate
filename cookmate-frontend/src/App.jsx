@@ -13,6 +13,7 @@ import NotFound from "./pages/NotFound";
 
 import AuthProvider, { useAuth } from "./context/AuthContext";
 import RequireAuth from "./components/RequireAuth";
+import Footer from "./components/Footer";
 
 // Lazy load ONLY Signup
 const Signup = lazy(() => import("./pages/Signup"));
@@ -85,60 +86,64 @@ function Search() {
   };
 
   return (
-    <div className="max-w-3xl mx-auto p-4">
-      <h1 className="text-2xl font-semibold mb-3">CookMate</h1>
+    <div className="max-w-5xl mx-auto p-4">
+      <h1 className="text-3xl font-bold mb-2">CookMate</h1>
+      <p className="text-gray-600 mb-4">Search by ingredients you already have.</p>
 
-      <div className="flex gap-3 mb-3 text-sm">
-        <Link className="text-gray-600 hover:text-blue-600" to="/">Search</Link>
-        <Link className="text-gray-600 hover:text-blue-600" to="/recipes">Recipes</Link>
+      <div className="flex flex-col sm:flex-row gap-2 mb-2">
+        <input
+          className="flex-1 rounded-md border px-3 py-2"
+          placeholder="e.g. flour, milk, egg"
+          value={pantry}
+          onChange={(e) => setPantry(e.target.value)}
+        />
+        <button
+          onClick={search}
+          className="rounded-md bg-blue-600 text-white px-4 py-2 hover:bg-blue-700"
+        >
+          Search recipes
+        </button>
       </div>
 
-      <button
-        onClick={checkApi}
-        className="inline-flex items-center rounded-md border px-3 py-1.5 text-sm hover:bg-gray-50"
-      >
-        Check API
-      </button>
-      <div className="mt-2 text-sm text-gray-700">{msg}</div>
-
-      <div className="mt-6">
-        <label className="block text-sm font-medium text-gray-700">Your ingredients:</label>
-        <div className="flex gap-2 mt-2">
-          <input
-            className="flex-1 rounded-md border px-3 py-2 text-sm"
-            value={pantry}
-            onChange={(e)=>setPantry(e.target.value)}
-          />
-          <button
-            onClick={search}
-            className="inline-flex items-center rounded-md bg-blue-600 px-3 py-2 text-white text-sm hover:bg-blue-700"
-          >
-            Search recipes
-          </button>
-        </div>
-        <div className="flex gap-2 mt-2">
-          <button
-            onClick={loadSavedPantry}
-            className="inline-flex items-center rounded-md border px-3 py-1.5 text-sm hover:bg-gray-50"
-          >
-            Load saved pantry
-          </button>
-          <button
-            onClick={saveAsMyPantry}
-            className="inline-flex items-center rounded-md border px-3 py-1.5 text-sm hover:bg-gray-50"
-          >
-            Save as my pantry
-          </button>
-        </div>
+      <div className="flex flex-wrap gap-2 mb-4">
+        <button
+          onClick={loadSavedPantry}
+          className="rounded-md border px-3 py-1.5 text-sm hover:bg-gray-50"
+        >
+          Load saved pantry
+        </button>
+        <button
+          onClick={saveAsMyPantry}
+          className="rounded-md border px-3 py-1.5 text-sm hover:bg-gray-50"
+        >
+          Save as my pantry
+        </button>
+        <button
+          onClick={checkApi}
+          className="rounded-md border px-3 py-1.5 text-sm hover:bg-gray-50"
+        >
+          Check API
+        </button>
       </div>
 
-      <ul className="mt-6 space-y-2 text-sm">
-        {results.map((r,i)=>(
-          <li key={i}>
-            {r?.recipe?.title ?? "(no title)"} — score {Number(r?.score ?? 0).toFixed(3)}
+      {msg && <div className="mb-3 text-gray-700">{msg}</div>}
+
+      <ul className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+        {results.map((r, i) => (
+          <li key={i} className="rounded-lg border bg-white p-4">
+            <div className="font-semibold">
+              {r?.recipe?.title ?? "(no title)"}
+            </div>
+            <div className="text-sm text-gray-600 mt-1">
+              score {Number(r?.score ?? 0).toFixed(3)}
+            </div>
           </li>
         ))}
       </ul>
+
+      {!results.length && (
+        <div className="text-gray-500 mt-4">Start by entering your pantry above.</div>
+      )}
     </div>
   );
 }
@@ -185,6 +190,7 @@ export default function App(){
               </Routes>
             </Suspense>
           </main>
+          <Footer />
         </div>
       </BrowserRouter>
     </AuthProvider>
