@@ -65,14 +65,13 @@ router.delete("/", auth, async (req, res) => {
     const user = await User.findById(req.user.id);
     if (!user) return res.status(401).json({ error: "User not found" });
 
-    const deleted = user.history?.length || 0;
     user.history = [];
     await user.save();
 
-    return res.json({ ok: true, deleted });
+    res.json({ ok: true });
   } catch (err) {
-    console.error("history DELETE error:", err.stack || err);
-    return res.status(500).json({ error: "Server error" });
+    console.error("history DELETE error:", err);
+    res.status(500).json({ error: "Server error" });
   }
 });
 
