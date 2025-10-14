@@ -21,11 +21,8 @@ router.post("/:recipeId", auth, async (req, res) => {
     if (!user) return res.status(401).json({ error: "User not found" });
 
     user.history = user.history || [];
-    // remove existing entry for this recipe
     user.history = user.history.filter(h => String(h.recipe) !== String(recipeId));
-    // add newest at front
     user.history.unshift({ recipe: recipeId, viewedAt: new Date() });
-    // cap list
     if (user.history.length > 100) user.history = user.history.slice(0, 100);
 
     await user.save();
@@ -58,6 +55,23 @@ router.get("/", auth, async (req, res) => {
     return res.json(items);
   } catch (err) {
     console.error("history GET error:", err.stack || err);
+    return res.status(500).json({ error: "Server error" });
+  }
+});
+
+// DELETE /api/history -> clear all history for current user
+router.delete("/", auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(401).json({ error: "User not found" });
+
+    const deleted = user.history?.length || 0;
+    user.history = [];
+    await user.save();
+
+    return res.json({ ok: true, deleted });
+  } catch (err) {
+    console.error("history DELETE error:", err.stack || err);
     return res.status(500).json({ error: "Server error" });
   }
 });
