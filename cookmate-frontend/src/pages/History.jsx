@@ -2,12 +2,14 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import api from "../services/api";
 import { useAuth } from "../context/AuthContext";
+import useToast from "../hooks/useToast";
 
 export default function History() {
   const { token } = useAuth();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState("");
+  const { show, ToastPortal } = useToast(1800);
 
   useEffect(() => {
     if (!token) {
@@ -40,6 +42,30 @@ export default function History() {
       {loading && <div>Loading…</div>}
       {msg && <div className="mb-2 text-gray-700">{msg}</div>}
 
+      {items.length > 0 && (
+        <div className="mt-2">
+          <button
+      onClick={async () => {
+      try {
+      const res = await api.delete("/api/history");
+      // some servers may return 204 No Content; treat that as success too
+      if (res.status === 200 || res.status === 204) {
+        setItems([]);
+        show("History cleared");
+      } else {
+        show("Failed to clear history");
+      }
+      } catch (e) {
+      show("Failed to clear history");
+      }
+      }}
+      className="inline-flex items-center rounded-md border px-3 py-1.5 text-sm hover:bg-gray-50"
+      >
+        Clear history
+          </button>
+        </div>
+      )}
+
       <ul className="space-y-3 mt-3">
         {items.map((h) => (
           <li
@@ -66,6 +92,8 @@ export default function History() {
       {!loading && items.length === 0 && (
         <div className="text-gray-600 mt-3">No history yet.</div>
       )}
+
+      <ToastPortal />
     </div>
   );
 }
