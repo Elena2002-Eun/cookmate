@@ -1,39 +1,78 @@
 const express = require("express");
+const router = express.Router();
 const auth = require("../middleware/auth");
 const User = require("../models/User");
-const router = express.Router();
 
-// GET saved pantry
+// GET current pantry
 router.get("/", auth, async (req, res) => {
-  const user = await User.findById(req.userId).lean();
-  res.json(user?.pantry || []);
+  try {
+    const user = await User.findById(req.userId).lean();
+    return res.json(user?.pantry || []);
+  } catch (e) {
+    console.error("GET /api/pantry error:", e);
+    return res.status(500).json({ error: "Server error" });
+  }
 });
 
-// PUT replace pantry
+// PUT replace entire pantry: { pantry: string[] }
 router.put("/", auth, async (req, res) => {
-  const list = Array.isArray(req.body.pantry) ? req.body.pantry : [];
-  const normalized = [...new Set(list.map(s => String(s || "").trim().toLowerCase()).filter(Boolean))];
-  const user = await User.findByIdAndUpdate(req.userId, { pantry: normalized }, { new: true });
-  res.json(user.pantry);
+  try {
+    const body = req.body || {};
+    const list = Array.isArray(body.pantry)
+      ? body.pantry.map((s) => String(s || "").trim()).filter(Boolean)
+      : null;
+
+    if (!list) {
+      return res.status(400).json({ error: "Invalid body. Expect { pantry: string[] }" });
+    }
+
+    const user = await User.findByIdAndUpdate(
+      req.userId,
+      { $set: { pantry: list } },
+      { new: true }
+    ).lean();
+
+    return res.json(user?.pantry || []);
+  } catch (e) {
+    console.error("PUT /api/pantry error:", e);
+    return res.status(500).json({ error: "Server error" });
+  }
 });
 
-// POST add one item
+// POST add single item: { item: string }
 router.post("/", auth, async (req, res) => {
-  const v = String(req.body.item || "").trim().toLowerCase();
-  if (!v) return res.status(400).json({ error: "item required" });
-  const user = await User.findById(req.userId);
-  user.pantry = Array.from(new Set([...(user.pantry || []), v]));
-  await user.save();
-  res.json(user.pantry);
+  try {
+    const item = String(req.body?.item || "").trim();
+    if (!item) return res.status(400).json({ error: "Empty item" });
+
+    const user = await User.findByIdAndUpdate(
+      req.userId,
+      { $addToSet: { pantry: item } },
+      { new: true }
+    ).lean();
+
+    return res.json(user?.pantry || []);
+  } catch (e) {
+    console.error("POST /api/pantry error:", e);
+    return res.status(500).json({ error: "Server error" });
+  }
 });
 
-// DELETE remove one item
-router.delete("/:item", auth, async (req, res) => {
-  const v = String(req.params.item || "").trim().toLowerCase();
-  const user = await User.findById(req.userId);
-  user.pantry = (user.pantry || []).filter(x => x !== v);
-  await user.save();
-  res.json(user.pantry);
+// DELETE single item by label
+router.delete("/:label", auth, async (req, res) => {
+  try {
+    const label = decodeURIComponent(req.params.label || "");
+    const user = await User.findByIdAndUpdate(
+      req.userId,
+      { $pull: { pantry: label } },
+      { new: true }
+    ).lean();
+
+    return res.json(user?.pantry || []);
+  } catch (e) {
+    console.error("DELETE /api/pantry/:label error:", e);
+    return res.status(500).json({ error: "Server error" });
+  }
 });
 
 module.exports = router;
