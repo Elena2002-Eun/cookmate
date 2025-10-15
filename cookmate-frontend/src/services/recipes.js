@@ -6,16 +6,14 @@ export async function fetchTags() {
   return (Array.isArray(data) ? data : []).map(String);
 }
 
-export async function fetchRecipes(params = {}) {
-  const q = new URLSearchParams();
-  Object.entries(params).forEach(([k, v]) => {
-    if (v !== undefined && v !== null && String(v).trim() !== "") q.set(k, v);
-  });
-  const url = q.toString()
-    ? `/api/recipes/all?${q.toString()}`
-    : `/api/recipes/all`;
-  const { data } = await api.get(url);
-  return Array.isArray(data) ? data : [];
+export async function fetchRecipes({ difficulty = "", tag = "", page = 1, pageSize = 12 }) {
+  const params = new URLSearchParams();
+  if (difficulty) params.set("difficulty", difficulty);
+  if (tag) params.set("tag", tag);
+  params.set("page", String(page));
+  params.set("pageSize", String(pageSize));
+  const { data } = await api.get(`/api/recipes/all?${params.toString()}`);
+  return data; // { items, total, page, pageSize, totalPages }
 }
 
 export async function fetchTagCounts() {
