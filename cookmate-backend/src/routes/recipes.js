@@ -9,22 +9,32 @@ const router = express.Router();
 router.get('/all', async (req, res) => {
   try {
     const { difficulty, tag } = req.query;
+
+    // pagination params
+    const page = Math.max(parseInt(req.query.page || '1', 10), 1);
+    const pageSizeRaw = parseInt(req.query.pageSize || '12', 10);
+    const pageSize = Math.min(Math.max(pageSizeRaw, 1), 50); // clamp 1..50
+    const skip = (page - 1) * pageSize;
+
     const query = {};
+    if (difficulty) query.difficulty = String(difficulty).toLowerCase();
+    if (tag) query.tags = { $in: [String(tag).toLowerCase()] };
 
-    if (difficulty) {
-      // normalize to lowercase
-      query.difficulty = String(difficulty).toLowerCase();
-    }
-    if (tag) {
-      // tags contains value
-      query.tags = { $in: [String(tag).toLowerCase()] };
-    }
+    const [items, total] = await Promise.all([
+      Recipe.find(query, { title: 1, tags: 1, difficulty: 1 })
+        .skip(skip)
+        .limit(pageSize)
+        .lean(),
+      Recipe.countDocuments(query),
+    ]);
 
-    const recs = await Recipe.find(query, { title: 1, tags: 1, difficulty: 1 })
-      .limit(100)
-      .lean();
-
-    res.json(recs);
+    res.json({
+      items,
+      total,
+      page,
+      pageSize,
+      totalPages: Math.max(1, Math.ceil(total / pageSize)),
+    });
   } catch (err) {
     console.error('recipes/all error:', err);
     res.status(500).json({ error: 'Server error' });
