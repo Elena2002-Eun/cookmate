@@ -18,9 +18,10 @@ router.get("/", auth, async (req, res) => {
 // PUT replace entire pantry
 router.put("/", auth, async (req, res) => {
   try {
-    const list = Array.isArray(req.body.pantry)
-      ? req.body.pantry.map(s => String(s || "").trim()).filter(Boolean)
-      : [];
+    let list = Array.isArray(req.body.pantry) ? req.body.pantry : [];
+    list = list.map(s => String(s || "").trim()).filter(Boolean);
+    // cap to 200 items
+    if (list.length > 200) list = list.slice(0, 200);
 
     const user = await User.findByIdAndUpdate(
       req.userId,
@@ -28,7 +29,7 @@ router.put("/", auth, async (req, res) => {
       { new: true, runValidators: true, projection: { pantry: 1 } }
     );
 
-    // If user not found, return empty array to keep client simple
+    // Return pantry (empty array if user not found)
     return res.json(Array.isArray(user?.pantry) ? user.pantry : []);
   } catch (e) {
     console.error("PUT /pantry error:", e);
