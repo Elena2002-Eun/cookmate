@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, Link } from "react-router-dom";
 import { fetchRecipes, fetchTagCounts } from "../services/recipes";
+import SkeletonCard from "../components/Skeleton.jsx";
 
 const DIFFICULTY_OPTIONS = ["", "easy", "medium", "hard"]; // "" = Any
 
@@ -20,7 +21,7 @@ export default function Recipes() {
   const pageSize = 12;
 
   // data
-  const [tagCounts, setTagCounts] = useState([]); // [{tag, count}]
+  const [tagCounts, setTagCounts] = useState([]);
   const [items, setItems] = useState([]);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
@@ -30,7 +31,7 @@ export default function Recipes() {
   const [tagsLoading, setTagsLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // keep local page state in sync if user navigates (back/forward)
+  // keep state synced with URL
   useEffect(() => {
     const qp = new URLSearchParams(location.search);
     setPage(Number(qp.get("page") || 1));
@@ -77,7 +78,7 @@ export default function Recipes() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.search, page]);
 
-  // push filters into the URL (always reset page to 1 when filters change)
+  // push filters into the URL (reset page to 1)
   const applyFilters = (next) => {
     const q = new URLSearchParams();
     if (next.difficulty) q.set("difficulty", next.difficulty);
@@ -152,30 +153,46 @@ export default function Recipes() {
 
       {/* Status */}
       {error && <div className="text-red-600 mb-2">{error}</div>}
-      {loading && <div>Loading…</div>}
       {!loading && total > 0 && (
-        <div className="text-sm text-gray-600 mb-2">{total} result{total === 1 ? "" : "s"}</div>
+        <div className="text-sm text-gray-600 mb-2">
+          {total} result{total === 1 ? "" : "s"}
+        </div>
+      )}
+
+      {/* Skeleton Loader */}
+      {loading && (
+        <ul className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <li key={i}>
+              <SkeletonCard />
+            </li>
+          ))}
+        </ul>
       )}
 
       {/* Results */}
-      <ul className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-3">
-        {items.map((r) => (
-          <li key={r._id}>
-            <Link
-              to={`/recipe/${r._id}`}
-              className="block rounded-lg border bg-white p-4 hover:shadow-md transition"
-            >
-              <div className="font-semibold">{r.title}</div>
-              <div className="text-sm text-gray-600 mt-1">
-                {r.difficulty || "n/a"} • {Array.isArray(r.tags) ? r.tags.join(", ") : ""}
-              </div>
-            </Link>
-          </li>
-        ))}
-      </ul>
+      {!loading && (
+        <>
+          <ul className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-3">
+            {items.map((r) => (
+              <li key={r._id}>
+                <Link
+                  to={`/recipe/${r._id}`}
+                  className="block rounded-lg border bg-white p-4 hover:shadow-md transition"
+                >
+                  <div className="font-semibold">{r.title}</div>
+                  <div className="text-sm text-gray-600 mt-1">
+                    {r.difficulty || "n/a"} • {Array.isArray(r.tags) ? r.tags.join(", ") : ""}
+                  </div>
+                </Link>
+              </li>
+            ))}
+          </ul>
 
-      {!loading && items.length === 0 && (
-        <div className="text-gray-600 mt-3">No recipes found.</div>
+          {!items.length && (
+            <div className="text-gray-600 mt-3">No recipes found.</div>
+          )}
+        </>
       )}
 
       {/* Pagination */}

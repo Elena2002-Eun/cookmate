@@ -75,6 +75,11 @@ export default function Pantry() {
       const last = items[items.length - 1];
       removeItem(last);
     }
+    // Save with Cmd/Ctrl + Enter
+    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+     e.preventDefault();
+     save();
+   }
   };
 
   const onPaste = (e) => {
@@ -91,17 +96,18 @@ export default function Pantry() {
   };
 
   const save = async () => {
-    setBusy(true);
-    try {
-      const list = items.map((s) => s.trim()).filter(Boolean);
-      await api.put("/api/pantry", { pantry: list });
-      show("Pantry saved");
-    } catch {
-      show("Failed to save");
-    } finally {
-      setBusy(false);
-    }
-  };
+  setBusy(true);
+  try {
+    const list = items.map((s) => s.trim()).filter(Boolean);
+    const { data } = await api.put("/api/pantry", { pantry: list }); // ← shape
+    // optional: you can setItems(data) if backend returns the saved array
+    show("Pantry saved");
+  } catch {
+    show("Failed to save");
+  } finally {
+    setBusy(false);
+  }
+};
 
   return (
     <div className="max-w-5xl mx-auto p-4">

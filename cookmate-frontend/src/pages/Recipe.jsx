@@ -2,27 +2,26 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "../services/api";
 import { useAuth } from "../context/AuthContext";
-import Toast from "../components/Toast"; // 👈 add this
+import useToast from "../hooks/useToast";
 
 export default function Recipe() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { token } = useAuth();
+  const { show, ToastPortal } = useToast(2000);
 
   const [rec, setRec] = useState(null);
   const [favIds, setFavIds] = useState([]);
   const [step, setStep] = useState(0);
-  const [msg, setMsg] = useState("");
   const [favBusy, setFavBusy] = useState(false);
-  const [toast, setToast] = useState(""); // 👈 add this
 
   // Load recipe
   useEffect(() => {
     api
       .get(`/api/recipes/${id}`)
       .then((r) => setRec(r.data))
-      .catch(() => setMsg("Failed to load recipe"));
-  }, [id]);
+      .catch(() => show("Failed to load recipe"));
+  }, [id, show]);
 
   // Record history (only if logged in)
   useEffect(() => {
@@ -43,7 +42,7 @@ export default function Recipe() {
 
   const toggleFavorite = async () => {
     if (!token) {
-      setMsg("Please login first");
+      show("Please login first");
       return;
     }
     if (favBusy) return;
@@ -52,20 +51,37 @@ export default function Recipe() {
       if (isFav) {
         await api.delete(`/api/favorites/${id}`);
         setFavIds((prev) => prev.filter((x) => x !== id));
-        setToast("Removed from favorites");
+        show("Removed from favorites");
       } else {
         await api.post(`/api/favorites/${id}`);
         setFavIds((prev) => [...prev, id]);
-        setToast("Added to favorites");
+        show("Added to favorites");
       }
     } catch {
-      setMsg("Failed to update favorites");
+      show("Failed to update favorites");
     } finally {
       setFavBusy(false);
     }
   };
 
-  if (!rec) return <div className="p-4">Loading...</div>;
+  // ----- Skeleton while loading -----
+  if (!rec) {
+    return (
+      <div className="max-w-3xl mx-auto p-4">
+        <button
+          onClick={() => navigate("/recipes")}
+          className="mb-3 inline-flex items-center text-sm text-blue-600 hover:underline"
+        >
+          ← Back to Recipes
+        </button>
+
+        <div className="h-7 w-2/3 bg-gray-200 rounded animate-pulse" />
+        <div className="h-4 w-1/2 bg-gray-200 rounded animate-pulse mt-3" />
+        <div className="h-28 w-full bg-gray-200 rounded animate-pulse mt-4" />
+        <div className="h-10 w-40 bg-gray-200 rounded animate-pulse mt-3" />
+      </div>
+    );
+  }
 
   const steps = Array.isArray(rec.steps) ? rec.steps : [];
   const hasSteps = steps.length > 0;
@@ -88,6 +104,7 @@ export default function Recipe() {
         <h2 className="text-2xl font-semibold">{rec.title}</h2>
         <button
           onClick={toggleFavorite}
+          aria-label={isFav ? "Remove from favorites" : "Add to favorites"}
           title={isFav ? "Unfavorite" : "Favorite"}
           className={`inline-flex items-center rounded-md border px-3 py-1.5 text-sm ${
             isFav ? "bg-yellow-100 border-yellow-300" : "hover:bg-gray-50"
@@ -102,8 +119,6 @@ export default function Recipe() {
         <b>Difficulty:</b> {rec.difficulty || "n/a"}{" · "}
         <b>Tags:</b> {Array.isArray(rec.tags) ? rec.tags.join(", ") : "—"}
       </div>
-
-      {msg && <div className="mt-2 text-gray-700">{msg}</div>}
 
       <div className="mt-3">
         <b>Ingredients:</b> {ingredientsLine || "—"}
@@ -140,8 +155,9 @@ export default function Recipe() {
           </button>
         </div>
       )}
-      {/* Toast */}
-      <Toast message={toast} onClose={() => setToast("")} />
+
+      {/* Toast outlet for this page */}
+      <ToastPortal />
     </div>
   );
 }

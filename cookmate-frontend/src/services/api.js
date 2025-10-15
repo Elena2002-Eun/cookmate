@@ -1,26 +1,28 @@
+// api.js
 import axios from "axios";
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || "http://localhost:4000",
+  withCredentials: false,
 });
 
-// attach token if present
+// Attach token if present
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("token");
-  if (token) config.headers.Authorization = `Bearer ${token}`;
+  try {
+    const token = localStorage.getItem("token");
+    if (token) config.headers.Authorization = `Bearer ${token}`;
+  } catch {}
   return config;
 });
 
-// NEW: catch 401s and bounce to /login with a message
+// Global 401 handler: clear token, set flash, hard-redirect to /login
 api.interceptors.response.use(
   (res) => res,
   (err) => {
     const status = err?.response?.status;
     if (status === 401) {
-      localStorage.removeItem("token");
-      // stash a one-time message for login page
-      localStorage.setItem("flash", "Please log in to continue");
-      // hard redirect keeps it simple across routes
+      try { localStorage.removeItem("token"); } catch {}
+      try { localStorage.setItem("flash", "Session expired. Please log in again."); } catch {}
       window.location.href = "/login";
     }
     return Promise.reject(err);
