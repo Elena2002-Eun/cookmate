@@ -1,0 +1,141 @@
+[
+  {
+    "title": "Simple Pancakes",
+    "difficulty": "easy",
+    "tags": ["breakfast", "vegetarian", "quick"],
+    "ingredients": [
+      {"name":"flour","quantity":"1 cup"},
+      {"name":"milk","quantity":"1 cup"},
+      {"name":"egg","quantity":"1"}
+    ],
+    "steps": [
+      {"text":"Whisk flour, milk, and egg until smooth."},
+      {"text":"Heat a pan, pour batter, cook both sides until golden."}
+    ]
+  },
+  {
+    "title": "Garlic Butter Pasta",
+    "difficulty": "easy",
+    "tags": ["dinner", "quick"],
+    "ingredients": [
+      {"name":"pasta","quantity":"200 g"},
+      {"name":"garlic","quantity":"3 cloves"},
+      {"name":"butter","quantity":"2 tbsp"}
+    ],
+    "steps": [
+      {"text":"Cook pasta in salted water."},
+      {"text":"Sauté garlic in butter, toss pasta, season to taste."}
+    ]
+  },
+  {
+    "title": "Tomato Egg Stir-fry",
+    "difficulty": "easy",
+    "tags": ["dinner", "asian", "quick", "budget"],
+    "ingredients": [
+      {"name":"egg","quantity":"3"},
+      {"name":"tomato","quantity":"2"},
+      {"name":"oil","quantity":"1 tbsp"}
+    ],
+    "steps": [
+      {"text":"Beat eggs and scramble halfway; remove."},
+      {"text":"Stir-fry tomatoes, return eggs, season and finish."}
+    ]
+  },
+  {
+    "title": "Veggie Fried Rice",
+    "difficulty": "medium",
+    "tags": ["dinner", "vegetarian", "one-pot"],
+    "ingredients": [
+      {"name":"rice","quantity":"2 cups cooked"},
+      {"name":"soy sauce","quantity":"1 tbsp"},
+      {"name":"mixed vegetables","quantity":"1 cup"}
+    ],
+    "steps": [
+      {"text":"Heat oil and sauté vegetables."},
+      {"text":"Add rice and soy sauce; stir-fry until hot."}
+    ]
+  },
+  {
+    "title": "BBQ Chicken Wrap",
+    "difficulty": "easy",
+    "tags": ["lunch", "bbq", "quick"],
+    "ingredients": [
+      {"name":"tortilla","quantity":"2"},
+      {"name":"chicken","quantity":"200 g"},
+      {"name":"bbq sauce","quantity":"2 tbsp"}
+    ],
+    "steps": [
+      {"text":"Cook chicken, toss with BBQ sauce."},
+      {"text":"Fill tortillas and wrap."}
+    ]
+  },
+  {
+    "title": "Avocado Toast",
+    "difficulty": "easy",
+    "tags": ["breakfast", "vegetarian", "quick"],
+    "ingredients": [
+      {"name":"bread","quantity":"2 slices"},
+      {"name":"avocado","quantity":"1"},
+      {"name":"salt","quantity":"pinch"}
+    ],
+    "steps": [
+      {"text":"Toast bread."},
+      {"text":"Mash avocado, season, spread on toast."}
+    ]
+  },
+  {
+    "title": "One-Pot Lentil Soup",
+    "difficulty": "medium",
+    "tags": ["dinner", "vegan", "one-pot", "healthy"],
+    "ingredients": [
+      {"name":"lentils","quantity":"1 cup"},
+      {"name":"carrot","quantity":"1"},
+      {"name":"onion","quantity":"1"}
+    ],
+    "steps": [
+      {"text":"Sauté onion and carrot."},
+      {"text":"Add lentils and water; simmer until tender."}
+    ]
+  },
+  {
+    "title": "Baked Salmon",
+    "difficulty": "easy",
+    "tags": ["dinner", "healthy"],
+    "ingredients": [
+      {"name":"salmon","quantity":"2 fillets"},
+      {"name":"lemon","quantity":"1/2"},
+      {"name":"olive oil","quantity":"1 tbsp"}
+    ],
+    "steps": [
+      {"text":"Season salmon with oil, salt, and lemon."},
+      {"text":"Bake at 200°C / 400°F for 12–15 minutes."}
+    ]
+  },
+  {
+    "title": "Chocolate Mug Cake",
+    "difficulty": "easy",
+    "tags": ["dessert", "microwave", "quick"],
+    "ingredients": [
+      {"name":"flour","quantity":"4 tbsp"},
+      {"name":"cocoa powder","quantity":"2 tbsp"},
+      {"name":"milk","quantity":"3 tbsp"}
+    ],
+    "steps": [
+      {"text":"Mix all ingredients in a mug."},
+      {"text":"Microwave 60–90 seconds until set."}
+    ]
+  },
+  {
+    "title": "Greek Salad",
+    "difficulty": "easy",
+    "tags": ["salad", "vegetarian", "healthy", "no-cook"],
+    "ingredients": [
+      {"name":"cucumber","quantity":"1"},
+      {"name":"tomato","quantity":"2"},
+      {"name":"feta","quantity":"100 g"}
+    ],
+    "steps": [
+      {"text":"Chop ingredients and toss with olive oil and vinegar."}
+    ]
+  }
+]

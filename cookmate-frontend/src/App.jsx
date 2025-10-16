@@ -1,5 +1,5 @@
 // src/App.jsx
-import { BrowserRouter, Routes, Route, Link, useNavigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, NavLink, Link, useNavigate } from "react-router-dom";
 import { useState, Suspense, lazy } from "react";
 import api from "./services/api";
 
@@ -25,33 +25,54 @@ function Nav() {
   const { show, ToastPortal } = useToast(2000);
 
   const handleLogout = () => {
-    // 1) clear auth
     logout();
-
-    // 2) toast now
     show("Logged out");
-
-    // 3) set a flash for Login page (your Login already reads localStorage.flash)
     localStorage.setItem("flash", "You’ve been logged out");
-
-    // 4) redirect (home or login — your call)
     navigate("/login", { replace: true });
   };
+
+  const links = [
+    { to: "/recipes", label: "Recipes" },
+    { to: "/favorites", label: "Favorites" },
+    { to: "/history", label: "History" },
+    { to: "/pantry", label: "Pantry" },
+  ];
 
   return (
     <header className="border-b bg-white">
       <div className="mx-auto max-w-5xl px-4 py-3 flex items-center justify-between">
         <nav className="flex items-center gap-4 text-sm">
-          <Link className="font-semibold text-gray-900 hover:text-blue-600" to="/">CookMate</Link>
-          <Link className="text-gray-600 hover:text-blue-600" to="/recipes">Recipes</Link>
-          <Link className="text-gray-600 hover:text-blue-600" to="/favorites">Favorites</Link>
-          <Link className="text-gray-600 hover:text-blue-600" to="/history">History</Link>
-          <Link className="text-gray-600 hover:text-blue-600" to="/pantry">Pantry</Link>
+          <NavLink
+            to="/"
+            end
+            className={({ isActive }) =>
+              `font-semibold ${
+                isActive ? "text-blue-600" : "text-gray-900 hover:text-blue-600"
+              }`
+            }
+          >
+            CookMate
+          </NavLink>
+
+          {links.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              className={({ isActive }) =>
+                `${isActive ? "text-blue-600" : "text-gray-600 hover:text-blue-600"}`
+              }
+            >
+              {item.label}
+            </NavLink>
+          ))}
         </nav>
+
         <div className="flex items-center gap-3">
           {!token ? (
             <>
-              <Link className="text-gray-600 hover:text-blue-600" to="/login">Login</Link>
+              <Link className="text-gray-600 hover:text-blue-600" to="/login">
+                Login
+              </Link>
               <Link
                 className="inline-flex items-center rounded-md bg-blue-600 px-3 py-1.5 text-white text-sm font-medium hover:bg-blue-700"
                 to="/signup"
@@ -80,7 +101,7 @@ function Search() {
   const [msg, setMsg] = useState("");
   const [saving, setSaving] = useState(false);
   const { token } = useAuth();
-  const { show, ToastPortal } = useToast(2000); // 👈 add
+  const { show, ToastPortal } = useToast(2000);
 
   const checkApi = async () => {
     const { data } = await api.get("/");
@@ -89,38 +110,40 @@ function Search() {
   };
 
   const search = async () => {
-    const list = pantry.split(",").map(s => s.trim()).filter(Boolean);
+    const list = pantry.split(",").map((s) => s.trim()).filter(Boolean);
     const { data } = await api.post("/api/search/by-ingredients", { pantry: list });
     setResults(data);
   };
 
   const loadSavedPantry = async () => {
-  if (!token) {
-    setMsg("Login to load your pantry");
-    show("Please login to load pantry");
-    return;
-  }
-  const { data } = await api.get("/api/pantry");
-  setPantry((data || []).join(", "));
-  show("Pantry loaded");
+    if (!token) {
+      setMsg("Login to load your pantry");
+      show("Please login to load pantry");
+      return;
+    }
+    const { data } = await api.get("/api/pantry");
+    setPantry((data || []).join(", "));
+    show("Pantry loaded");
   };
 
   const saveAsMyPantry = async () => {
-  if (!token) { show("Login to save your pantry"); return; }
-  const list = pantry.split(",").map(s => s.trim()).filter(Boolean);
-  try {
-    setSaving(true);
-    const { data } = await api.put("/api/pantry", { pantry: list });
-    const count = Array.isArray(data) ? data.length : (data?.length ?? list.length);
-    setMsg(`Saved ${count} items to pantry`);
-    show("Pantry saved");
-  } catch {
-    show("Failed to save pantry");
-  } finally {
-    setSaving(false);
-  }
+    if (!token) {
+      show("Login to save your pantry");
+      return;
+    }
+    const list = pantry.split(",").map((s) => s.trim()).filter(Boolean);
+    try {
+      setSaving(true);
+      const { data } = await api.put("/api/pantry", { pantry: list });
+      const count = Array.isArray(data) ? data.length : data?.length ?? list.length;
+      setMsg(`Saved ${count} items to pantry`);
+      show("Pantry saved");
+    } catch {
+      show("Failed to save pantry");
+    } finally {
+      setSaving(false);
+    }
   };
-
 
   return (
     <div className="max-w-5xl mx-auto p-4">
@@ -153,7 +176,7 @@ function Search() {
           onClick={saveAsMyPantry}
           disabled={saving}
           className="inline-flex items-center rounded-md border px-3 py-1.5 text-sm hover:bg-gray-50 disabled:opacity-60"
-          >
+        >
           {saving ? "Saving…" : "Save as my pantry"}
         </button>
         <button
@@ -169,9 +192,7 @@ function Search() {
       <ul className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
         {results.map((r, i) => (
           <li key={i} className="rounded-lg border bg-white p-4">
-            <div className="font-semibold">
-              {r?.recipe?.title ?? "(no title)"}
-            </div>
+            <div className="font-semibold">{r?.recipe?.title ?? "(no title)"}</div>
             <div className="text-sm text-gray-600 mt-1">
               score {Number(r?.score ?? 0).toFixed(3)}
             </div>
@@ -182,13 +203,14 @@ function Search() {
       {!results.length && (
         <div className="text-gray-500 mt-4">Start by entering your pantry above.</div>
       )}
+
       {/* Toast outlet for the Search box */}
       <ToastPortal />
     </div>
   );
 }
 
-export default function App(){
+export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
@@ -202,6 +224,7 @@ export default function App(){
                 <Route path="/recipe/:id" element={<Recipe />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/signup" element={<Signup />} />
+
                 <Route
                   path="/favorites"
                   element={
@@ -226,6 +249,7 @@ export default function App(){
                     </RequireAuth>
                   }
                 />
+
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </Suspense>

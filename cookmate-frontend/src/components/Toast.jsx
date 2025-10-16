@@ -1,25 +1,20 @@
-import { useEffect, useState } from "react";
+// src/components/Toast.jsx
+import { useEffect } from "react";
 
-export default function Toast({ message = "", onClose, duration = 2500 }) {
-  const [open, setOpen] = useState(Boolean(message));
-
+export default function Toast({ message = "", onClose, timeout = 2000 }) {
   useEffect(() => {
     if (!message) return;
-    setOpen(true);
-    const timer = setTimeout(() => {
-      setOpen(false);
-      onClose?.();
-    }, duration);
-    return () => clearTimeout(timer);
-  }, [message, duration, onClose]);
+    const id = setTimeout(() => onClose?.(), timeout);
+    return () => clearTimeout(id);
+  }, [message, timeout, onClose]);
 
-  if (!open) return null;
+  if (!message) return null;
 
   return (
-    <div className="fixed bottom-6 inset-x-0 z-50 flex justify-center px-4">
-      <div className="rounded-md bg-black/80 text-white px-4 py-2 text-sm shadow-lg">
-        {message}
-      </div>
-    </div>
+    <div className="fixed inset-x-0 top-4 z-50 flex justify-center px-4" aria-live="polite" role="status">
+  <div className="rounded-md bg-black/80 text-white px-4 py-2 text-sm shadow-lg">
+    {message}
+  </div>
+</div>
   );
 }
