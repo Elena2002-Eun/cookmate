@@ -1,0 +1,31 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* design tokens */
+:root{
+  --brand:#2563eb;            /* blue-600 */
+  --brand-foreground:#fff;
+  --bg:#f8fafc;               /* slate-50 */
+  --card:#ffffff;
+  --muted:#6b7280;            /* gray-500 */
+  --ring:0 0 0 3px rgba(37,99,235,.25);
+}
+body{ background:var(--bg); }
+
+/* focus ring (accessible, consistent) */
+:where(button,a,input,select,textarea):focus{
+  outline: none;
+  box-shadow: var(--ring);
+  border-radius: .5rem;
+}
+
+/* --- line clamp helpers (no plugin needed) --- */
+.clamp-1, .clamp-2, .clamp-3 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.clamp-1 { -webkit-line-clamp: 1; }
+.clamp-2 { -webkit-line-clamp: 2; }
+.clamp-3 { -webkit-line-clamp: 3; }
