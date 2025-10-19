@@ -1,37 +1,96 @@
-import { useEffect, useMemo, useState } from "react";
+// src/pages/Recipes.jsx
+import { useEffect, useMemo, useState, memo } from "react";
 import { useLocation, useNavigate, Link } from "react-router-dom";
 import { fetchRecipes, fetchTagCounts } from "../services/recipes";
-import SkeletonCard from "../components/Skeleton.jsx";
+import PageHeader from "../components/PageHeader";
+import Badge from "../components/ui/Badge";
+import { TagIcon, FlameIcon } from "../components/icons";
+import { difficultyBadgeVariant } from "../utils/difficulty";
+import Thumb from "../components/Thumb";
+import { prefetchRecipe } from "../utils/prefetch";
+import usePrefetchOnVisible from "../hooks/usePrefetchOnVisible";
 
 const DIFFICULTY_OPTIONS = ["", "easy", "medium", "hard"]; // "" = Any
+
+// ✅ Child card (safe for hooks)
+const RecipeCard = memo(function RecipeCard({ r }) {
+  const prefetchRef = usePrefetchOnVisible(() => prefetchRecipe(r._id));
+  const tags = Array.isArray(r.tags) ? r.tags : [];
+
+  return (
+    <li>
+      <Link
+        ref={prefetchRef}
+        to={`/recipe/${r._id}`}
+        aria-label={`Open recipe: ${r.title}`}
+        onMouseEnter={() => prefetchRecipe(r._id)}
+        onFocus={() => prefetchRecipe(r._id)}
+        className="
+          group block rounded-xl border bg-white p-3 shadow-sm transition
+          hover:-translate-y-0.5 hover:shadow-lg hover:ring-1 hover:ring-blue-200
+          focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500
+          motion-reduce:transform-none motion-reduce:transition-none
+        "
+      >
+        <Thumb src={r.imageUrl} alt={r.title} />
+
+        <div className="mt-3">
+          <div className="flex items-start justify-between gap-3">
+            <h3 className="font-semibold clamp-2 group-hover:underline">{r.title}</h3>
+            <Badge variant={difficultyBadgeVariant(r.difficulty)} className="shrink-0">
+              <span className="inline-flex items-center gap-1">
+                <FlameIcon className="opacity-70" />
+                {r.difficulty || "n/a"}
+              </span>
+            </Badge>
+          </div>
+
+          <div className="mt-1 text-xs text-gray-600 clamp-1">
+            {tags.join(", ")}
+          </div>
+
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {tags.slice(0, 2).map((t, i) => (
+              <Badge key={`${r._id}-tag-${t || "untagged"}-${i}`} variant="blue">
+                <span className="inline-flex items-center gap-1">
+                  <TagIcon />
+                  {t || "untagged"}
+                </span>
+              </Badge>
+            ))}
+            {tags.length > 2 && <Badge>+{tags.length - 2} more</Badge>}
+          </div>
+        </div>
+      </Link>
+    </li>
+  );
+});
 
 export default function Recipes() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // read current URL query
+  // URL params
   const params = useMemo(() => new URLSearchParams(location.search), [location.search]);
 
-  // filter state (mirrors URL)
+  // Filters
   const [difficulty, setDifficulty] = useState(params.get("difficulty") || "");
   const [tag, setTag] = useState(params.get("tag") || "");
-
-  // pagination state (mirrors URL)
   const [page, setPage] = useState(Number(params.get("page") || 1));
   const pageSize = 12;
 
-  // data
+  // Data
   const [tagCounts, setTagCounts] = useState([]);
   const [items, setItems] = useState([]);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
 
-  // ui
+  // UI
   const [loading, setLoading] = useState(false);
   const [tagsLoading, setTagsLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // keep state synced with URL
+  // Sync state with URL
   useEffect(() => {
     const qp = new URLSearchParams(location.search);
     setPage(Number(qp.get("page") || 1));
@@ -39,13 +98,22 @@ export default function Recipes() {
     setTag(qp.get("tag") || "");
   }, [location.search]);
 
-  // load tag counts once
+  // Load tag counts
   useEffect(() => {
     (async () => {
       try {
         setTagsLoading(true);
         const list = await fetchTagCounts();
-        setTagCounts(list);
+        setTagCounts(
+          Array.isArray(list)
+            ? list
+                .map((x) => ({
+                  tag: String(x.tag || "").trim(),
+                  count: Number(x.count || 0),
+                }))
+                .filter((x) => x.tag)
+            : []
+        );
       } catch {
         setError("Failed to load tags");
       } finally {
@@ -54,7 +122,7 @@ export default function Recipes() {
     })();
   }, []);
 
-  // fetch recipes whenever URL query or page changes
+  // Fetch recipes
   useEffect(() => {
     (async () => {
       setLoading(true);
@@ -78,7 +146,7 @@ export default function Recipes() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.search, page]);
 
-  // push filters into the URL (reset page to 1)
+  // Update URL filters
   const applyFilters = (next) => {
     const q = new URLSearchParams();
     if (next.difficulty) q.set("difficulty", next.difficulty);
@@ -87,7 +155,7 @@ export default function Recipes() {
     navigate({ pathname: "/recipes", search: `?${q.toString()}` }, { replace: false });
   };
 
-  // go to a page, preserve existing filters
+  // Pagination
   const gotoPage = (p) => {
     const q = new URLSearchParams(location.search);
     if (p <= 1) q.delete("page");
@@ -97,13 +165,24 @@ export default function Recipes() {
 
   return (
     <div className="max-w-5xl mx-auto p-4">
-      <h2 className="text-2xl font-semibold mb-4">Recipes</h2>
+      <PageHeader
+        title="Recipes"
+        subtitle="Filter by difficulty or tag. Click a recipe to view details."
+      />
 
       {/* Filters */}
-      <div className="flex flex-wrap items-end gap-4 mb-4">
+      <fieldset className="flex flex-wrap items-end gap-4 mb-4">
+        <legend className="sr-only">Filter recipes</legend>
+
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Difficulty</label>
+          <label
+            htmlFor="difficulty"
+            className="block text-sm font-medium text-gray-700 mb-1"
+          >
+            Difficulty
+          </label>
           <select
+            id="difficulty"
             className="rounded-md border px-3 py-2 text-sm"
             value={difficulty}
             onChange={(e) => {
@@ -121,21 +200,26 @@ export default function Recipes() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Tag</label>
+          <label htmlFor="tag" className="block text-sm font-medium text-gray-700 mb-1">
+            Tag
+          </label>
           <select
+            id="tag"
             className="rounded-md border px-3 py-2 text-sm"
             value={tag}
+            disabled={tagsLoading}
             onChange={(e) => {
               const v = e.target.value;
               setTag(v);
               applyFilters({ difficulty, tag: v });
             }}
-            disabled={tagsLoading}
           >
             <option value="">{tagsLoading ? "Loading..." : "Any"}</option>
-            {tagCounts.map((tc) => (
-              <option key={tc.tag} value={tc.tag}>
-                {tc.tag} ({tc.count})
+            {tagCounts
+            .filter(tc => typeof tc?.tag === "string" && tc.tag.trim() !== "")
+            .map((tc) => (
+              <option key={`tagopt-${tc.tag}`} value={tc.tag}>
+                {tc.tag} ({Number(tc.count || 0)})
               </option>
             ))}
           </select>
@@ -149,7 +233,7 @@ export default function Recipes() {
             Clear filters
           </button>
         )}
-      </div>
+      </fieldset>
 
       {/* Status */}
       {error && <div className="text-red-600 mb-2">{error}</div>}
@@ -159,12 +243,16 @@ export default function Recipes() {
         </div>
       )}
 
-      {/* Skeleton Loader */}
+      {/* Skeleton */}
       {loading && (
         <ul className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-3">
           {Array.from({ length: 6 }).map((_, i) => (
-            <li key={i}>
-              <SkeletonCard />
+            <li key={i} className="rounded-xl border bg-white p-3">
+              <div className="aspect-[4/3] w-full rounded-lg bg-gray-200 animate-pulse" />
+              <div className="mt-3 space-y-2">
+                <div className="h-4 w-2/3 rounded bg-gray-200 animate-pulse" />
+                <div className="h-3 w-1/2 rounded bg-gray-200 animate-pulse" />
+              </div>
             </li>
           ))}
         </ul>
@@ -175,22 +263,34 @@ export default function Recipes() {
         <>
           <ul className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-3">
             {items.map((r) => (
-              <li key={r._id}>
-                <Link
-                  to={`/recipe/${r._id}`}
-                  className="block rounded-lg border bg-white p-4 hover:shadow-md transition"
-                >
-                  <div className="font-semibold">{r.title}</div>
-                  <div className="text-sm text-gray-600 mt-1">
-                    {r.difficulty || "n/a"} • {Array.isArray(r.tags) ? r.tags.join(", ") : ""}
-                  </div>
-                </Link>
-              </li>
+              <RecipeCard key={r._id} r={r} />
             ))}
           </ul>
 
           {!items.length && (
-            <div className="text-gray-600 mt-3">No recipes found.</div>
+            <div className="mt-6 rounded-2xl border bg-white p-8 text-center">
+              <div className="mx-auto mb-3 h-10 w-10 rounded-full bg-blue-50 grid place-items-center">
+                <span className="text-blue-600 text-lg">🍳</span>
+              </div>
+              <h3 className="text-lg font-semibold">No recipes match those filters</h3>
+              <p className="mt-1 text-sm text-gray-600">
+                Try removing a filter or browsing all recipes.
+              </p>
+              <div className="mt-4 flex items-center justify-center gap-2">
+                <button
+                  onClick={() => navigate("/recipes")}
+                  className="rounded-md border px-3 py-1.5 text-sm hover:bg-gray-50"
+                >
+                  Clear filters
+                </button>
+                <Link
+                  to="/"
+                  className="rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700"
+                >
+                  Home search
+                </Link>
+              </div>
+            </div>
           )}
         </>
       )}

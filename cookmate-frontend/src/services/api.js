@@ -22,7 +22,7 @@ api.interceptors.response.use(
     const status = err?.response?.status;
     if (status === 401) {
       try { localStorage.removeItem("token"); } catch {}
-      try { localStorage.setItem("flash", "Session expired. Please log in again."); } catch {}
+      try { localStorage.setItem("flash", "Please log in to continue."); } catch {}
       window.location.href = "/login";
     }
     return Promise.reject(err);

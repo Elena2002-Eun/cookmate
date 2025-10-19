@@ -2,8 +2,13 @@ const express = require('express');
 const Recipe = require('../models/Recipe');
 const router = express.Router();
 
+// helper: escape user-provided strings for regex
+function escapeRegex(s = "") {
+  return String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 /**
- * GET /api/recipes/all?difficulty=easy&tag=vegetarian
+ * GET /api/recipes/all?difficulty=easy&tag=vegetarian&page=1&pageSize=12
  * Returns list of recipes with optional filters.
  */
 router.get('/all', async (req, res) => {
@@ -18,15 +23,21 @@ router.get('/all', async (req, res) => {
 
     const query = {};
     if (difficulty) query.difficulty = String(difficulty).toLowerCase();
-    if (tag) query.tags = { $in: [String(tag).toLowerCase()] };
+
+    // Case-insensitive tag match so "Vegan" matches "vegan"
+    if (tag) {
+      query.tags = {
+        $elemMatch: { $regex: new RegExp(`^${escapeRegex(String(tag))}$`, 'i') }
+      };
+    }
 
     const [items, total] = await Promise.all([
-      Recipe.find(query, { title: 1, tags: 1, difficulty: 1 })
-        .skip(skip)
-        .limit(pageSize)
-        .lean(),
-      Recipe.countDocuments(query),
-    ]);
+  Recipe.find(query, { title: 1, tags: 1, difficulty: 1, imageUrl: 1 })
+    .skip(skip)
+    .limit(pageSize)
+    .lean(),
+  Recipe.countDocuments(query),
+]);
 
     res.json({
       items,
@@ -92,7 +103,7 @@ router.get('/tag-counts', async (_req, res) => {
   }
 });
 
-// GET /api/recipes/:id  -> full recipe (with steps)
+// GET /api/recipes/:id  -> full recipe (with steps, imageUrl, etc.)
 router.get('/:id', async (req, res) => {
   const rec = await Recipe.findById(req.params.id);
   if (!rec) return res.status(404).json({ error: 'Not found' });

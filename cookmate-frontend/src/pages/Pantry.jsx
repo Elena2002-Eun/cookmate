@@ -3,10 +3,11 @@ import api from "../services/api";
 import { useAuth } from "../context/AuthContext";
 import useToast from "../hooks/useToast";
 import Chip from "../components/Chip";
+import { TOAST } from "../utils/toast";
 
 export default function Pantry() {
   const { token } = useAuth();
-  const { show, ToastPortal } = useToast(1800);
+  const { show, ToastPortal } = useToast(TOAST.DURATION.short);
 
   const [items, setItems] = useState([]); // string[]
   const [input, setInput] = useState("");
@@ -27,7 +28,7 @@ export default function Pantry() {
         const { data } = await api.get("/api/pantry");
         setItems(Array.isArray(data) ? data : []);
       } catch {
-        show("Failed to load pantry");
+        show(TOAST.msg.pantry_save_failed, TOAST.DURATION.long);
       }
     })();
   }, [token, show]);
@@ -46,21 +47,21 @@ export default function Pantry() {
     if (!cleaned) return;
     const key = cleaned.toLowerCase();
     if (normalized.has(key)) {
-      show("Already in pantry");
+      show(TOAST.msg.pantry_duplicate, TOAST.DURATION.long);
       return;
     }
     setItems((prev) => [...prev, cleaned]);
-    show("Added");
+    show(TOAST.msg.pantry_added);
   };
 
   const removeItem = (label) => {
     setItems((prev) => prev.filter((x) => x !== label));
-    show("Removed");
+    show(TOAST.msg.pantry_removed);
   };
 
   const clearAll = () => {
     setItems([]);
-    show("Cleared");
+    show(TOAST.msg.pantry_cleared);
   };
 
   const onKeyDown = (e) => {
@@ -101,9 +102,9 @@ export default function Pantry() {
     const list = items.map((s) => s.trim()).filter(Boolean);
     const { data } = await api.put("/api/pantry", { pantry: list }); // ← shape
     // optional: you can setItems(data) if backend returns the saved array
-    show("Pantry saved");
+    show(TOAST.msg.pantry_saved);
   } catch {
-    show("Failed to save");
+    show(TOAST.msg.pantry_save_failed, TOAST.DURATION.long);
   } finally {
     setBusy(false);
   }
