@@ -2,7 +2,7 @@
 export default function Thumb({ src, alt = "", className = "" }) {
   const safeAlt = typeof alt === "string" ? alt : "";
 
-  // SVG fallback for missing or broken images
+  // SVG fallback if no image or broken link
   const fallback =
     "data:image/svg+xml;charset=utf-8," +
     encodeURIComponent(
@@ -17,13 +17,20 @@ export default function Thumb({ src, alt = "", className = "" }) {
       </svg>`
     );
 
+  // Optimize Unsplash image URLs
+  const sizeParams = "?auto=format&fit=crop&w=640&q=70";
+  const adjustedSrc =
+    src?.includes("images.unsplash.com")
+      ? `${src}${src.includes("?") ? "" : sizeParams}`
+      : src;
+
   return (
     <div
       className={`aspect-[4/3] w-full overflow-hidden rounded-lg bg-gray-100 ${className}`}
     >
-      {src ? (
+      {adjustedSrc ? (
         <img
-          src={src}
+          src={adjustedSrc}
           alt={safeAlt}
           className="h-full w-full object-cover"
           loading="lazy"
