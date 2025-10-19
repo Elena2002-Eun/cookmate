@@ -15,7 +15,7 @@ router.get('/all', async (req, res) => {
   try {
     const { difficulty, tag } = req.query;
 
-    // pagination params
+    // pagination
     const page = Math.max(parseInt(req.query.page || '1', 10), 1);
     const pageSizeRaw = parseInt(req.query.pageSize || '12', 10);
     const pageSize = Math.min(Math.max(pageSizeRaw, 1), 50); // clamp 1..50
@@ -24,20 +24,20 @@ router.get('/all', async (req, res) => {
     const query = {};
     if (difficulty) query.difficulty = String(difficulty).toLowerCase();
 
-    // Case-insensitive tag match so "Vegan" matches "vegan"
+    // Case-insensitive exact tag match (so "Vegan" matches "vegan")
     if (tag) {
-      query.tags = {
-        $elemMatch: { $regex: new RegExp(`^${escapeRegex(String(tag))}$`, 'i') }
-      };
+      const safe = escapeRegex(String(tag));
+      query.tags = { $elemMatch: { $regex: new RegExp(`^${safe}$`, 'i') } };
     }
 
     const [items, total] = await Promise.all([
-  Recipe.find(query, { title: 1, tags: 1, difficulty: 1, imageUrl: 1 })
-    .skip(skip)
-    .limit(pageSize)
-    .lean(),
-  Recipe.countDocuments(query),
-]);
+      // ✅ include imageUrl so the list can render thumbnails
+      Recipe.find(query, { title: 1, tags: 1, difficulty: 1, imageUrl: 1 })
+        .skip(skip)
+        .limit(pageSize)
+        .lean(),
+      Recipe.countDocuments(query),
+    ]);
 
     res.json({
       items,
@@ -52,6 +52,10 @@ router.get('/all', async (req, res) => {
   }
 });
 
+/**
+ * GET /api/recipes/tags
+ * Distinct list of tags (sorted).
+ */
 router.get('/tags', async (_req, res) => {
   try {
     const tags = await Recipe.distinct('tags');
@@ -62,15 +66,18 @@ router.get('/tags', async (_req, res) => {
   }
 });
 
-// GET /api/recipes/tag-counts  -> [{ tag: "vegetarian", count: 12 }, ...]
+/**
+ * GET /api/recipes/tag-counts
+ * -> [{ tag: "vegetarian", count: 12 }, ...]
+ */
 router.get('/tag-counts', async (_req, res) => {
   try {
     const result = await Recipe.aggregate([
-      // make sure tags exists and is an array
+      // ensure tags is an array
       { $project: { tags: { $ifNull: ["$tags", []] } } },
       { $unwind: "$tags" },
 
-      // coerce any non-strings; trim; lower-case; skip empties
+      // coerce to lowercased trimmed strings; skip empties
       {
         $project: {
           tag: {
@@ -103,7 +110,10 @@ router.get('/tag-counts', async (_req, res) => {
   }
 });
 
-// GET /api/recipes/:id  -> full recipe (with steps, imageUrl, etc.)
+/**
+ * GET /api/recipes/:id
+ * Full recipe (with steps, ingredients, imageUrl, etc.)
+ */
 router.get('/:id', async (req, res) => {
   const rec = await Recipe.findById(req.params.id);
   if (!rec) return res.status(404).json({ error: 'Not found' });
