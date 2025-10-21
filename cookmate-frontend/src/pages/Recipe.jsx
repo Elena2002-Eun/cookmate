@@ -11,6 +11,7 @@ import { TagIcon, FlameIcon } from "../components/icons";
 import { difficultyBadgeVariant } from "../utils/difficulty";
 import Thumb from "../components/Thumb";
 import { getRecipeCached, prefetchRecipe } from "../utils/prefetch";
+import StarRating from "../components/StarRating";
 
 export default function Recipe() {
   const { id } = useParams();
@@ -23,18 +24,31 @@ export default function Recipe() {
   const [step, setStep] = useState(0);
   const [favBusy, setFavBusy] = useState(false);
 
-  // Load recipe
+  // Guided Mode
+  const [guidedOpen, setGuidedOpen] = useState(false);
+  const [guidedStep, setGuidedStep] = useState(0);
+
+  // ⭐ My local rating (also used as optimistic UI when posting)
+  const localKey = `rating:${id}`;
+  const [myRating, setMyRating] = useState(() => {
+    const v = localStorage.getItem(localKey);
+    return v ? Number(v) : 0;
+  });
   useEffect(() => {
-    // 1) Try cache
-  const cached = getRecipeCached(id);
-  if (cached) {
-    setRec(cached);
-    return; // already have it
-  }
-  // 2) Otherwise fetch (and fill cache)
-  prefetchRecipe(id)
-    .then((data) => setRec(data))
-    .catch(() => show(TOAST.msg.recipe_load_failed, TOAST.DURATION.long));
+    const v = localStorage.getItem(localKey);
+    setMyRating(v ? Number(v) : 0);
+  }, [localKey]);
+
+  // Load recipe (cache → fetch)
+  useEffect(() => {
+    const cached = getRecipeCached(id);
+    if (cached) {
+      setRec(cached);
+      return;
+    }
+    prefetchRecipe(id)
+      .then((data) => setRec(data))
+      .catch(() => show(TOAST.msg.recipe_load_failed, TOAST.DURATION.long));
   }, [id, show]);
 
   // Record history (only if logged in)
@@ -78,6 +92,36 @@ export default function Recipe() {
     }
   };
 
+  // Share / Print handlers
+  const pageUrl =
+    (typeof window !== "undefined" && window.location?.href) ||
+    `${window?.location?.origin}/recipe/${id}`;
+
+  const onShare = async () => {
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: rec?.title || "Recipe",
+          text: "Check out this recipe on CookMate",
+          url: pageUrl,
+        });
+      } else if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(pageUrl);
+        show("Link copied to clipboard!");
+      } else {
+        // final fallback
+        // eslint-disable-next-line no-alert
+        prompt("Copy this URL", pageUrl);
+      }
+    } catch {
+      show("Couldn’t share. Try copying the URL.", TOAST.DURATION.long);
+    }
+  };
+
+  const onPrint = () => {
+    window.print();
+  };
+
   // ----- Skeleton while loading -----
   if (!rec) {
     return (
@@ -118,7 +162,7 @@ export default function Recipe() {
         ← Back to Recipes
       </button>
 
-      {/* Title + Favorite */}
+      {/* Title + Actions */}
       <PageHeader
         title={
           <span className="inline-flex items-center gap-2">
@@ -128,20 +172,56 @@ export default function Recipe() {
                 <FlameIcon className="opacity-70" /> {rec.difficulty || "n/a"}
               </span>
             </Badge>
+            {/* show avg/count if present */}
+            {typeof rec.avgRating === "number" && (
+              <span className="ml-2 text-sm text-gray-600">
+                ★ {rec.avgRating} ({rec.ratingsCount || 0})
+              </span>
+            )}
           </span>
         }
         right={
-          <button
-            onClick={toggleFavorite}
-            aria-label={isFav ? "Remove from favorites" : "Add to favorites"}
-            title={isFav ? "Unfavorite" : "Favorite"}
-            className={`inline-flex items-center rounded-md border px-3 py-1.5 text-sm transition
-              hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500
-              ${isFav ? "bg-yellow-100 border-yellow-300" : ""}`}
-            disabled={favBusy}
-          >
-            {isFav ? "★" : "☆"}
-          </button>
+          <div className="flex items-center gap-2">
+            {/* Share / Print */}
+            <button
+              onClick={onShare}
+              className="inline-flex items-center rounded-md border px-3 py-1.5 text-sm hover:bg-gray-50"
+              title="Share"
+            >
+              Share
+            </button>
+            <button
+              onClick={onPrint}
+              className="inline-flex items-center rounded-md border px-3 py-1.5 text-sm hover:bg-gray-50"
+              title="Print"
+            >
+              Print
+            </button>
+
+            {/* Guided */}
+            <button
+              onClick={() => {
+                setGuidedStep(0);
+                setGuidedOpen(true);
+              }}
+              className="inline-flex items-center rounded-md border px-3 py-1.5 text-sm hover:bg-gray-50"
+            >
+              Start guided mode
+            </button>
+
+            {/* Favorite */}
+            <button
+              onClick={toggleFavorite}
+              aria-label={isFav ? "Remove from favorites" : "Add to favorites"}
+              title={isFav ? "Unfavorite" : "Favorite"}
+              className={`inline-flex items-center rounded-md border px-3 py-1.5 text-sm transition
+                hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500
+                ${isFav ? "bg-yellow-100 border-yellow-300" : ""}`}
+              disabled={favBusy}
+            >
+              {isFav ? "★" : "☆"}
+            </button>
+          </div>
         }
       />
 
@@ -157,6 +237,38 @@ export default function Recipe() {
           ))}
         </div>
       )}
+
+      {/* ⭐ Rate this recipe (local + server if logged in) */}
+      <div className="mt-3 flex items-center gap-2">
+        <StarRating
+          value={myRating}
+          onChange={async (score) => {
+            try {
+              setMyRating(score);
+              localStorage.setItem(localKey, String(score)); // optimistic & persists
+
+              if (!token) {
+                show("Saved locally. Log in to publish your rating.", TOAST.DURATION.long);
+                return;
+              }
+
+              const { data } = await api.post(`/api/recipes/${id}/rate`, { value: score });
+              if (data && typeof data.avgRating === "number") {
+                setRec((r) =>
+                  r ? { ...r, avgRating: data.avgRating, ratingsCount: data.ratingsCount } : r
+                );
+              }
+            } catch {
+              show("Failed to rate recipe", TOAST.DURATION.long);
+            }
+          }}
+        />
+        {myRating ? (
+          <span className="text-sm text-gray-600">You rated {myRating}/5</span>
+        ) : (
+          <span className="text-sm text-gray-600">Rate this recipe</span>
+        )}
+      </div>
 
       {/* Hero image */}
       <div className="mt-4 rounded-2xl border bg-white p-3">
@@ -209,7 +321,10 @@ export default function Recipe() {
             {Array.isArray(rec.ingredients) && rec.ingredients.length > 0 ? (
               <ul className="mt-2 space-y-2 text-gray-800">
                 {rec.ingredients.map((i, idx) => (
-                  <li key={idx} className="flex justify-between gap-3 border-b pb-1 last:border-0">
+                  <li
+                    key={idx}
+                    className="flex justify-between gap-3 border-b pb-1 last:border-0"
+                  >
                     <span>{i.name}</span>
                     <span className="text-gray-500">{i.quantity}</span>
                   </li>
@@ -221,6 +336,61 @@ export default function Recipe() {
           </div>
         </aside>
       </div>
+
+      {/* Guided Mode Overlay */}
+      {guidedOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-[80] bg-black/50"
+          onClick={() => setGuidedOpen(false)}
+        >
+          <div
+            className="absolute inset-4 md:inset-10 rounded-2xl bg-white p-5 md:p-8 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-xl font-semibold">Guided Cooking</h2>
+              <button
+                onClick={() => setGuidedOpen(false)}
+                className="rounded-md border px-3 py-1.5 text-sm hover:bg-gray-50"
+              >
+                Exit
+              </button>
+            </div>
+
+            {hasSteps ? (
+              <div className="mt-4">
+                <div className="text-sm text-gray-600 mb-2">
+                  Step {guidedStep + 1} of {steps.length}
+                </div>
+                <div className="text-lg leading-relaxed">
+                  {steps[guidedStep]?.text}
+                </div>
+
+                <div className="mt-6 flex items-center gap-2">
+                  <button
+                    disabled={guidedStep === 0}
+                    onClick={() => setGuidedStep((s) => Math.max(0, s - 1))}
+                    className="inline-flex items-center rounded-md border px-3 py-1.5 text-sm disabled:opacity-50 hover:bg-gray-50"
+                  >
+                    Back
+                  </button>
+                  <button
+                    disabled={guidedStep >= steps.length - 1}
+                    onClick={() => setGuidedStep((s) => Math.min(steps.length - 1, s + 1))}
+                    className="inline-flex items-center rounded-md border px-3 py-1.5 text-sm disabled:opacity-50 hover:bg-gray-50"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-4 text-gray-600">No steps found for this recipe.</div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Toast outlet for this page */}
       <ToastPortal />

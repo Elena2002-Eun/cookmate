@@ -2,9 +2,11 @@ const mongoose = require("mongoose");
 
 const userSchema = new mongoose.Schema(
   {
-    email: { type: String, unique: true, required: true },
+    email: { type: String, unique: true, required: true, index: true },
     passwordHash: { type: String, required: true },
-
+    displayName: { type: String, default: "" },
+    dietaryTags: { type: [String], default: [] },
+    role: { type: String, enum: ["user","admin"], default: "user" },
     favorites: [{ type: mongoose.Schema.Types.ObjectId, ref: "Recipe" }],
 
     history: [
