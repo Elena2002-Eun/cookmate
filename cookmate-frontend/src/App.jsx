@@ -15,6 +15,8 @@ import Badge from "./components/ui/Badge";
 import { TagIcon, FlameIcon } from "./components/icons";
 import { difficultyBadgeVariant } from "./utils/difficulty";
 import AdminRoute from "./components/AdminRoute";
+import AssistantChat from "./components/AssistantChat";
+
 
 // ✅ Lazy-load pages
 const Recipes   = lazy(() => import("./pages/Recipes"));
@@ -413,6 +415,7 @@ export default function App() {
             </Suspense>
           </main>
           <Footer />
+          <AssistantChat />
         </div>
       </BrowserRouter>
     </AuthProvider>

@@ -13,6 +13,7 @@ const authRoutes      = require("./routes/auth");     // /signup, /login, /me
 const historyRoutes   = require("./routes/history");
 const pantryRoutes    = require("./routes/pantry");
 const adminRoutes     = require("./routes/admin");    // /api/admin/*
+const assistantRoutes = require("./routes/assistant");
 
 const app = express();
 
@@ -83,6 +84,7 @@ app.use("/api/recipes",   recipeRoutes);
 app.use("/api/favorites", favoritesRoutes);
 app.use("/api/history",   historyRoutes);
 app.use("/api/pantry",    pantryRoutes);
+app.use("/api/assistant", assistantRoutes);
 
 // Auth + Profile live in the same router file:
 // - POST /api/auth/signup
