@@ -311,24 +311,47 @@ function Search() {
 
       {msg && <div className="mb-3 mt-2 text-gray-700">{msg}</div>}
 
-      {/* Results */}
+      {/* Results (now clickable) */}
       <ul className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-4">
-        {results.map((r, i) => {
-          const title = r?.recipe?.title ?? "(no title)";
-          const score = Number(r?.score ?? 0);
-          const difficulty = r?.recipe?.difficulty || "n/a";
-          const tags = Array.isArray(r?.recipe?.tags) ? r.recipe.tags : [];
+        {results.map((r) => {
+          // Support normalized shape and legacy nested shape
+          const id         = r?._id || r?.recipe?._id;
+          const title      = r?.title ?? r?.recipe?.title ?? "(no title)";
+          const imageUrl   = r?.imageUrl ?? r?.recipe?.imageUrl ?? "";
+          const score      = Number(r?.score ?? 0);
+          const difficulty = r?.difficulty ?? r?.recipe?.difficulty ?? "n/a";
+          const tags       = Array.isArray(r?.tags) ? r.tags : (Array.isArray(r?.recipe?.tags) ? r.recipe.tags : []);
+
           return (
-            <li key={i}>
-              <div className="group rounded-xl border bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg focus-within:ring-2 focus-within:ring-blue-500">
+            <li key={id || title}>
+              <Link
+                to={id ? `/recipe/${id}` : "#"}
+                className="group block rounded-xl border bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                aria-label={id ? `Open ${title}` : undefined}
+              >
+                {imageUrl ? (
+                  <img
+                    src={imageUrl}
+                    alt={title}
+                    className="w-full h-40 object-cover rounded-md mb-2"
+                    loading="lazy"
+                  />
+                ) : null}
+
                 <div className="font-semibold clamp-2">{title}</div>
+
                 <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                  <Badge variant={difficultyBadgeVariant(difficulty)}>
-                    <span className="inline-flex items-center gap-1">
-                      <FlameIcon className="w-3 h-3" />
-                      {difficulty}
-                    </span>
-                  </Badge>
+                  {/* Difficulty (optional) */}
+                  {difficulty && difficulty !== "n/a" && (
+                    <Badge variant={difficultyBadgeVariant(difficulty)}>
+                      <span className="inline-flex items-center gap-1">
+                        <FlameIcon className="w-3 h-3" />
+                        {difficulty}
+                      </span>
+                    </Badge>
+                  )}
+
+                  {/* Top 2 tags */}
                   {tags.slice(0, 2).map((t, i2) => (
                     <Badge key={`home-tag-${t || "untagged"}-${i2}`} variant="blue">
                       <span className="inline-flex items-center gap-1">
@@ -337,11 +360,13 @@ function Search() {
                       </span>
                     </Badge>
                   ))}
+
+                  {/* Score */}
                   <span className="ml-auto inline-block rounded bg-blue-50 px-2 py-0.5 text-[11px] text-blue-700">
                     score {score.toFixed(3)}
                   </span>
                 </div>
-              </div>
+              </Link>
             </li>
           );
         })}

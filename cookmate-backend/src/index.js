@@ -95,25 +95,54 @@ app.use("/api", authRoutes);
 // Admin (all endpoints /api/admin/*; router itself checks admin role)
 app.use("/api/admin", adminRoutes);
 
-/* ------------------------------ Debug helper ------------------------------ */
-// Hit http://localhost:4000/__routes to see mounted routes
-app.get("/__routes", (req, res) => {
-  const out = [];
-  function walk(stack, prefix = "") {
-    (stack || []).forEach((layer) => {
-      if (layer.route && layer.route.path) {
-        const methods = Object.keys(layer.route.methods)
-          .filter((m) => layer.route.methods[m])
-          .map((m) => m.toUpperCase())
-          .join(",");
-        out.push(`${methods} ${prefix}${layer.route.path}`);
-      } else if (layer.name === "router" && layer.handle?.stack) {
-        walk(layer.handle.stack, prefix);
+/* --------------------------- Debug / Inspectors --------------------------- */
+// Simple "am I on the right commit?" helper (Render often sets this env var)
+app.get("/__version", (_req, res) => {
+  res.json({
+    commit: process.env.RENDER_GIT_COMMIT || null,
+    dir: process.cwd(),
+    node: process.version,
+    env: process.env.NODE_ENV || "development",
+  });
+});
+
+// Safer route lister for Express 5
+app.get("/__routes", (_req, res) => {
+  try {
+    const seen = new Set();
+    const out = [];
+
+    function walk(stack = [], prefix = "") {
+      for (const layer of stack) {
+        // Concrete routes
+        if (layer?.route) {
+          const methods = Object.keys(layer.route.methods || {})
+            .filter((m) => layer.route.methods[m])
+            .map((m) => m.toUpperCase())
+            .sort();
+
+          const path = (prefix + layer.route.path).replace(/\/+/g, "/");
+          const key = methods.join(",") + " " + path;
+          if (!seen.has(key)) {
+            seen.add(key);
+            out.push({ methods, path });
+          }
+          continue;
+        }
+        // Nested routers
+        const child = layer?.handle?.stack || layer?.handle?._router?.stack;
+        if (Array.isArray(child)) {
+          walk(child, prefix);
+        }
       }
-    });
+    }
+
+    walk(app._router?.stack || []);
+    out.sort((a, b) => a.path.localeCompare(b.path));
+    res.json(out);
+  } catch (e) {
+    res.json({ error: e?.message || String(e) });
   }
-  walk(app._router?.stack);
-  res.json(out);
 });
 
 /* ------------------------------- Start app ------------------------------- */
