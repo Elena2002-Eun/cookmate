@@ -45,10 +45,19 @@ const RecipeCard = memo(function RecipeCard({ r }) {
             </Badge>
           </div>
 
+          {/* ⭐ Average rating + count */}
+          <div className="mt-1 text-xs text-gray-600">
+            {Number(r?.avgRating)
+              ? `★ ${r.avgRating} (${r.ratingsCount || 0})`
+              : "No ratings yet"}
+          </div>
+
+          {/* quick meta line (tags as comma-separated) */}
           <div className="mt-1 text-xs text-gray-600 clamp-1">
             {tags.join(", ")}
           </div>
 
+          {/* tag pills (first 2) */}
           <div className="mt-2 flex flex-wrap gap-1.5">
             {tags.slice(0, 2).map((t, i) => (
               <Badge key={`${r._id}-tag-${t || "untagged"}-${i}`} variant="blue">
@@ -76,6 +85,8 @@ export default function Recipes() {
   // Filters
   const [difficulty, setDifficulty] = useState(params.get("difficulty") || "");
   const [tag, setTag] = useState(params.get("tag") || "");
+  const [maxTime, setMaxTime] = useState(params.get("maxTime") || "");
+  const [diet, setDiet] = useState(params.get("diet") || "");
   const [page, setPage] = useState(Number(params.get("page") || 1));
   const pageSize = 12;
 
@@ -96,6 +107,8 @@ export default function Recipes() {
     setPage(Number(qp.get("page") || 1));
     setDifficulty(qp.get("difficulty") || "");
     setTag(qp.get("tag") || "");
+    setMaxTime(qp.get("maxTime") || "");
+    setDiet(qp.get("diet") || "");
   }, [location.search]);
 
   // Load tag counts
@@ -131,6 +144,8 @@ export default function Recipes() {
         const data = await fetchRecipes({
           difficulty: params.get("difficulty") || "",
           tag: params.get("tag") || "",
+          maxTime: params.get("maxTime") || "",
+          diet: params.get("diet") || "",
           page,
           pageSize,
         });
@@ -151,6 +166,8 @@ export default function Recipes() {
     const q = new URLSearchParams();
     if (next.difficulty) q.set("difficulty", next.difficulty);
     if (next.tag) q.set("tag", next.tag);
+    if (next.maxTime) q.set("maxTime", next.maxTime);
+    if (next.diet) q.set("diet", next.diet);
     q.set("page", "1");
     navigate({ pathname: "/recipes", search: `?${q.toString()}` }, { replace: false });
   };
@@ -167,13 +184,14 @@ export default function Recipes() {
     <div className="max-w-5xl mx-auto p-4">
       <PageHeader
         title="Recipes"
-        subtitle="Filter by difficulty or tag. Click a recipe to view details."
+        subtitle="Filter by difficulty, diet, time or tag. Click a recipe to view details."
       />
 
       {/* Filters */}
       <fieldset className="flex flex-wrap items-end gap-4 mb-4">
         <legend className="sr-only">Filter recipes</legend>
 
+        {/* Difficulty */}
         <div>
           <label
             htmlFor="difficulty"
@@ -188,7 +206,7 @@ export default function Recipes() {
             onChange={(e) => {
               const v = e.target.value;
               setDifficulty(v);
-              applyFilters({ difficulty: v, tag });
+              applyFilters({ difficulty: v, tag, maxTime, diet });
             }}
           >
             {DIFFICULTY_OPTIONS.map((opt) => (
@@ -199,6 +217,51 @@ export default function Recipes() {
           </select>
         </div>
 
+        {/* Max time */}
+        <div>
+          <label htmlFor="maxTime" className="block text-sm font-medium text-gray-700 mb-1">
+            Max time (mins)
+          </label>
+          <input
+            id="maxTime"
+            type="number"
+            min="1"
+            inputMode="numeric"
+            className="rounded-md border px-3 py-2 text-sm w-28"
+            value={maxTime}
+            onChange={(e) => {
+              const v = e.target.value;
+              setMaxTime(v);
+              applyFilters({ difficulty, tag, maxTime: v, diet });
+            }}
+            placeholder="e.g. 30"
+          />
+        </div>
+
+        {/* Diet */}
+        <div>
+          <label htmlFor="diet" className="block text-sm font-medium text-gray-700 mb-1">
+            Diet
+          </label>
+          <select
+            id="diet"
+            className="rounded-md border px-3 py-2 text-sm"
+            value={diet}
+            onChange={(e) => {
+              const v = e.target.value;
+              setDiet(v);
+              applyFilters({ difficulty, tag, maxTime, diet: v });
+            }}
+          >
+            <option value="">Any</option>
+            <option value="vegan">Vegan</option>
+            <option value="vegetarian">Vegetarian</option>
+            <option value="gluten-free">Gluten-free</option>
+            <option value="keto">Keto</option>
+          </select>
+        </div>
+
+        {/* Tag */}
         <div>
           <label htmlFor="tag" className="block text-sm font-medium text-gray-700 mb-1">
             Tag
@@ -211,23 +274,23 @@ export default function Recipes() {
             onChange={(e) => {
               const v = e.target.value;
               setTag(v);
-              applyFilters({ difficulty, tag: v });
+              applyFilters({ difficulty, tag: v, maxTime, diet });
             }}
           >
             <option value="">{tagsLoading ? "Loading..." : "Any"}</option>
             {tagCounts
-            .filter(tc => typeof tc?.tag === "string" && tc.tag.trim() !== "")
-            .map((tc) => (
-              <option key={`tagopt-${tc.tag}`} value={tc.tag}>
-                {tc.tag} ({Number(tc.count || 0)})
-              </option>
-            ))}
+              .filter((tc) => typeof tc?.tag === "string" && tc.tag.trim() !== "")
+              .map((tc) => (
+                <option key={`tagopt-${tc.tag}`} value={tc.tag}>
+                  {tc.tag} ({Number(tc.count || 0)})
+                </option>
+              ))}
           </select>
         </div>
 
-        {(difficulty || tag) && (
+        {(difficulty || tag || maxTime || diet) && (
           <button
-            onClick={() => applyFilters({ difficulty: "", tag: "" })}
+            onClick={() => applyFilters({ difficulty: "", tag: "", maxTime: "", diet: "" })}
             className="h-10 inline-flex items-center rounded-md border px-3 py-1.5 text-sm hover:bg-gray-50"
           >
             Clear filters

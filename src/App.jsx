@@ -14,8 +14,13 @@ import { fetchTagCounts } from "./services/recipes";
 import Badge from "./components/ui/Badge";
 import { TagIcon, FlameIcon } from "./components/icons";
 import { difficultyBadgeVariant } from "./utils/difficulty";
+import AdminRoute from "./components/AdminRoute";
+import AssistantChat from "./components/AssistantChat";
+import Thumb from "./components/Thumb";
+import { preloadLocalModel } from "./ai/localLLM"; // ⬅️ add this
 
-// ✅ Lazy-load pages (remove eager imports for these)
+
+// ✅ Lazy-load pages
 const Recipes   = lazy(() => import("./pages/Recipes"));
 const Recipe    = lazy(() => import("./pages/Recipe"));
 const Favorites = lazy(() => import("./pages/Favorites"));
@@ -24,11 +29,31 @@ const History   = lazy(() => import("./pages/History"));
 const Pantry    = lazy(() => import("./pages/Pantry"));
 const NotFound  = lazy(() => import("./pages/NotFound"));
 const Signup    = lazy(() => import("./pages/Signup"));
+const Profile   = lazy(() => import("./pages/Profile"));
+const Admin     = lazy(() => import("./pages/Admin"));
 
 function Nav() {
   const { token, logout } = useAuth();
   const navigate = useNavigate();
   const { show, ToastPortal } = useToast(TOAST.DURATION.short);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    setIsAdmin(false); // reset when token changes/logs out
+    if (!token) return;
+
+    (async () => {
+      try {
+        const { data } = await api.get("/api/me"); // must include `role` in response
+        if (alive) setIsAdmin(data?.role === "admin");
+      } catch {
+        // ignore -> treated as non-admin
+      }
+    })();
+
+    return () => { alive = false; };
+  }, [token]);
 
   const handleLogout = () => {
     logout();
@@ -38,10 +63,11 @@ function Nav() {
   };
 
   const links = [
-    { to: "/recipes", label: "Recipes" },
-    { to: "/favorites", label: "Favorites" },
-    { to: "/history", label: "History" },
-    { to: "/pantry", label: "Pantry" },
+    { to: "/recipes",  label: "Recipes"  },
+    { to: "/favorites",label: "Favorites"},
+    { to: "/history",  label: "History"  },
+    { to: "/pantry",   label: "Pantry"   },
+    ...(isAdmin ? [{ to: "/admin", label: "Admin" }] : []), // ✅ only for admins
   ];
 
   return (
@@ -67,12 +93,14 @@ function Nav() {
                 if (item.label === "Favorites") import("./pages/Favorites");
                 if (item.label === "History")   import("./pages/History");
                 if (item.label === "Pantry")    import("./pages/Pantry");
+                if (item.label === "Admin")     import("./pages/Admin");
               }}
               onFocus={() => {
                 if (item.label === "Recipes")  import("./pages/Recipes");
                 if (item.label === "Favorites") import("./pages/Favorites");
                 if (item.label === "History")   import("./pages/History");
                 if (item.label === "Pantry")    import("./pages/Pantry");
+                if (item.label === "Admin")     import("./pages/Admin");
               }}
               className={({ isActive }) =>
                 `${isActive ? "text-blue-600" : "text-gray-600 hover:text-blue-600"}`
@@ -81,6 +109,20 @@ function Nav() {
               {item.label}
             </NavLink>
           ))}
+
+          {/* ✅ Profile link only when logged in */}
+          {token && (
+            <NavLink
+              to="/profile"
+              onMouseEnter={() => import("./pages/Profile")}
+              onFocus={() => import("./pages/Profile")}
+              className={({ isActive }) =>
+                `${isActive ? "text-blue-600" : "text-gray-600 hover:text-blue-600"}`
+              }
+            >
+              Profile
+            </NavLink>
+          )}
         </nav>
 
         <div className="flex items-center gap-3">
@@ -273,37 +315,60 @@ function Search() {
 
       {msg && <div className="mb-3 mt-2 text-gray-700">{msg}</div>}
 
-      {/* Results */}
+      {/* Results (now clickable) */}
       <ul className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-4">
-        {results.map((r, i) => {
-          const title = r?.recipe?.title ?? "(no title)";
-          const score = Number(r?.score ?? 0);
-          const difficulty = r?.recipe?.difficulty || "n/a";
-          const tags = Array.isArray(r?.recipe?.tags) ? r.recipe.tags : [];
+        {results.map((r) => {
+          // Support normalized shape and legacy nested shape
+          const id         = r?._id || r?.recipe?._id;
+          const title      = r?.title ?? r?.recipe?.title ?? "(no title)";
+          const imageUrl   = r?.imageUrl ?? r?.recipe?.imageUrl ?? "";
+          const score      = Number(r?.score ?? 0);
+          const difficulty = r?.difficulty ?? r?.recipe?.difficulty ?? "n/a";
+          const tags       = Array.isArray(r?.tags) ? r.tags : (Array.isArray(r?.recipe?.tags) ? r.recipe.tags : []);
+
           return (
-            <li key={i}>
-              <div className="group rounded-xl border bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg focus-within:ring-2 focus-within:ring-blue-500">
+            <li key={id || title}>
+              <Link
+                to={id ? `/recipe/${id}` : "#"}
+                className="group block rounded-xl border bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                aria-label={id ? `Open ${title}` : undefined}
+              >
+                <Thumb
+  src={imageUrl}
+  alt={title}
+  lockId={id}
+  className="w-full h-40 mb-2"
+/>
+
                 <div className="font-semibold clamp-2">{title}</div>
+
                 <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                  <Badge variant={difficultyBadgeVariant(difficulty)}>
-                    <span className="inline-flex items-center gap-1">
-                      <FlameIcon className="w-3 h-3" />
-                      {difficulty}
-                    </span>
-                  </Badge>
-                  {tags.slice(0, 2).map((t, i) => (
-                    <Badge key={`home-tag-${t || "untagged"}-${i}`} variant="blue">
+                  {/* Difficulty (optional) */}
+                  {difficulty && difficulty !== "n/a" && (
+                    <Badge variant={difficultyBadgeVariant(difficulty)}>
+                      <span className="inline-flex items-center gap-1">
+                        <FlameIcon className="w-3 h-3" />
+                        {difficulty}
+                      </span>
+                    </Badge>
+                  )}
+
+                  {/* Top 2 tags */}
+                  {tags.slice(0, 2).map((t, i2) => (
+                    <Badge key={`home-tag-${t || "untagged"}-${i2}`} variant="blue">
                       <span className="inline-flex items-center gap-1">
                         {TagIcon ? <TagIcon className="w-3 h-3" /> : null}
                         {t || "untagged"}
                       </span>
                     </Badge>
                   ))}
+
+                  {/* Score */}
                   <span className="ml-auto inline-block rounded bg-blue-50 px-2 py-0.5 text-[11px] text-blue-700">
                     score {score.toFixed(3)}
                   </span>
                 </div>
-              </div>
+              </Link>
             </li>
           );
         })}
@@ -319,6 +384,13 @@ function Search() {
 }
 
 export default function App() {
+  useEffect(() => {
+    // Start fetching the browser model in the background.
+    // First load may take a bit; it is cached afterwards.
+    preloadLocalModel()
+      .then(() => console.log("✅ Local AI model ready"))
+      .catch(() => console.log("⚠️ Local AI model preload failed (will try on first use)"));
+  }, []);
   return (
     <AuthProvider>
       <BrowserRouter>
@@ -343,11 +415,14 @@ export default function App() {
                 <Route path="/favorites" element={<RequireAuth><Favorites /></RequireAuth>} />
                 <Route path="/history"   element={<RequireAuth><History /></RequireAuth>} />
                 <Route path="/pantry"    element={<RequireAuth><Pantry /></RequireAuth>} />
+                <Route path="/profile"   element={<RequireAuth><Profile /></RequireAuth>} />
+                <Route path="/admin"     element={<AdminRoute><Admin /></AdminRoute>} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </Suspense>
           </main>
           <Footer />
+          <AssistantChat />
         </div>
       </BrowserRouter>
     </AuthProvider>
