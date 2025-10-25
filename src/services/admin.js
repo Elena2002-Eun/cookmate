@@ -37,3 +37,13 @@ export async function getStats() {
   const { data } = await api.get("/api/admin/stats");
   return data;
 }
+
+export async function adminGetTagCounts() {
+  const { data } = await api.get("/api/admin/tags/counts");
+  return Array.isArray(data) ? data : [];
+}
+
+export async function adminRecountTags() {
+  const { data } = await api.post("/api/admin/tags/recount");
+  return data?.ok === true;
+}

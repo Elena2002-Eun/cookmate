@@ -3,7 +3,6 @@ import { useState, useEffect } from "react";
 import api from "../services/api";
 import { localAnswer, preloadLocalModel, isModelReady } from "../ai/localLLM";
 
-// Simple detector for definition/explain questions
 function isGeneralQuestion(text = "") {
   const t = String(text).toLowerCase();
   return /\b(what is|what's|why|how to|explain|define|difference|is it|is this|should i|can i)\b/.test(t);
@@ -13,40 +12,25 @@ export default function AssistantChat() {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState([
-    {
-      role: "assistant",
-      text:
-        "Hi! Tell me allergies or diets (e.g., gluten, dairy, vegan) and what you’d like to eat. " +
-        "I’ll suggest safe recipes and explain why.",
-    },
+    { role: "assistant", text: "Hi! Tell me allergies/diets (e.g., gluten, dairy, vegan) and what you’d like to eat. I’ll suggest safe recipes and explain why." }
   ]);
   const [loading, setLoading] = useState(false);
   const [modelLoading, setModelLoading] = useState(false);
-  const [modelReady, setModelReady] = useState(false); // track readiness
+  const [modelReady, setModelReady] = useState(false);
 
-  // ✅ Global preload when app/assistant mounts
+  // Preload local model when chat opens
   useEffect(() => {
-    preloadLocalModel().then(() => {
-      console.log("✅ AI model ready!");
-      setModelReady(true);
-    });
-  }, []);
-
-  // Optional — recheck if reopened
-  useEffect(() => {
-    if (!open || modelReady) return;
+    if (!open) return;
     let cancelled = false;
     (async () => {
       setModelLoading(true);
       const ok = await preloadLocalModel();
       if (!cancelled) {
-        setModelReady(!!ok);
+        setModelReady(ok);
         setModelLoading(false);
       }
     })();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [open]);
 
   async function send() {
@@ -58,39 +42,33 @@ export default function AssistantChat() {
     setLoading(true);
 
     try {
-      const general = isGeneralQuestion(text);
-
-      // If the model isn't ready yet, show a friendly message and bail out
+      // If model not ready yet, inform the user
       if (!modelReady) {
         setMessages((m) => [
           ...m,
-          {
-            role: "assistant",
-            text: "I'm loading the AI engine — please wait a bit and try again.",
-          },
+          { role: "assistant", text: "I'm loading the AI engine — please wait a bit and try again." },
         ]);
+        setLoading(false);
         return;
       }
 
+      const general = isGeneralQuestion(text);
+
       if (general) {
-        // Q&A mode (definitions, explanations)
-        setModelLoading(true);
-        let llmText = await localAnswer(text, [], { mode: "qa" });
-        setModelLoading(false);
-        setMessages((m) => [...m, { role: "assistant", text: llmText }]);
+        // Pure Q&A using local model
+        const answer = await localAnswer(text, [], { mode: "qa" });
+        setMessages((m) => [...m, { role: "assistant", text: answer }]);
       } else {
-        // Planning / suggestions: get recipes first
+        // Ask your backend for real recipes, then compose a local answer
         const { data } = await api.post("/api/assistant", { message: text });
         const { reply: baseReply, suggestions = [] } = data || {};
 
-        setModelLoading(true);
         let llmText = baseReply || "Here are some ideas:";
         try {
           llmText = await localAnswer(text, suggestions, { mode: "plan" });
         } catch {
-          // fallback to base reply
+          /* If local model errors, keep baseReply */
         }
-        setModelLoading(false);
 
         setMessages((m) => [
           ...m,
@@ -98,10 +76,7 @@ export default function AssistantChat() {
         ]);
       }
     } catch {
-      setMessages((m) => [
-        ...m,
-        { role: "assistant", text: "Sorry — I had trouble answering that." },
-      ]);
+      setMessages((m) => [...m, { role: "assistant", text: "Sorry — I had trouble answering that." }]);
     } finally {
       setLoading(false);
     }
@@ -123,40 +98,31 @@ export default function AssistantChat() {
           <div className="max-h-[50vh] overflow-auto p-3 space-y-3">
             {messages.map((m, i) => (
               <div key={i} className={m.role === "user" ? "text-right" : "text-left"}>
-                <div
-                  className={`inline-block rounded-xl px-3 py-2 whitespace-pre-wrap ${
-                    m.role === "user" ? "bg-blue-600 text-white" : "bg-gray-100"
-                  }`}
-                >
+                <div className={`inline-block rounded-xl px-3 py-2 whitespace-pre-wrap ${m.role === "user" ? "bg-blue-600 text-white" : "bg-gray-100"}`}>
                   {m.text}
                 </div>
 
-                {/* clickable recipe suggestions */}
-                {m.role === "assistant" &&
-                  Array.isArray(m.suggestions) &&
-                  m.suggestions.length > 0 && (
-                    <ul className="mt-2 space-y-1">
-                      {m.suggestions.map((s) => (
-                        <li key={s._id}>
-                          <a
-                            href={`/recipe/${s._id}`}
-                            className="text-blue-600 hover:underline"
-                          >
-                            {s.title}
-                          </a>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
+                {m.role === "assistant" && Array.isArray(m.suggestions) && m.suggestions.length > 0 && (
+                  <ul className="mt-2 space-y-1">
+                    {m.suggestions.map((s) => (
+                      <li key={s._id}>
+                        <a href={`/recipe/${s._id}`} className="text-blue-600 hover:underline">
+                          {s.title}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             ))}
 
-            {(loading || modelLoading) && (
+            {modelLoading && (
               <div className="text-sm text-gray-500">
-                {modelLoading
-                  ? "Loading local AI model (first time setup, please wait)…"
-                  : "Thinking…"}
+                Loading local AI model (first-time setup, please wait)…
               </div>
+            )}
+            {loading && !modelLoading && (
+              <div className="text-sm text-gray-500">Thinking…</div>
             )}
           </div>
 
@@ -168,10 +134,7 @@ export default function AssistantChat() {
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && send()}
             />
-            <button
-              onClick={send}
-              className="rounded-md bg-blue-600 px-3 py-2 text-white hover:bg-blue-700"
-            >
+            <button onClick={send} className="rounded-md bg-blue-600 px-3 py-2 text-white hover:bg-blue-700">
               Send
             </button>
           </div>

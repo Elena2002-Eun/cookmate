@@ -341,13 +341,95 @@ function RecipeEditorModal({ open, initial, onClose, onSave }) {
   );
 }
 
+/* ─────────────────────────────── Tags Panel ─────────────────────────────── */
+
+function AdminTagsPanel() {
+  const [tags, setTags] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [recounting, setRecounting] = useState(false);
+
+  async function load() {
+    setLoading(true);
+    try {
+      // Public endpoint that either uses tag_counts (if present) or live aggregation
+      const { data } = await api.get("/api/recipes/tag-counts");
+      setTags(Array.isArray(data) ? data : []);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  async function onRecount() {
+    if (!window.confirm("Recompute tag_counts from recipes now?")) return;
+    setRecounting(true);
+    try {
+      // Optional admin endpoint. If you haven't implemented it yet, this will 404.
+      await api.post("/api/admin/tags/recount");
+      await load();
+      alert("Recount complete.");
+    } catch (e) {
+      alert(
+        e?.response?.status === 404
+          ? "Recount endpoint not implemented on the server yet."
+          : "Recount failed."
+      );
+    } finally {
+      setRecounting(false);
+    }
+  }
+
+  return (
+    <section className="space-y-3">
+      <div className="flex items-center gap-2">
+        <h2 className="text-lg font-semibold">Tags</h2>
+        <button
+          onClick={load}
+          className="rounded-md border px-3 py-1 text-sm hover:bg-gray-50"
+          disabled={loading}
+        >
+          {loading ? "Refreshing…" : "Refresh"}
+        </button>
+        <button
+          onClick={onRecount}
+          className="rounded-md bg-blue-600 text-white px-3 py-1 text-sm hover:bg-blue-700 disabled:opacity-60"
+          disabled={recounting}
+        >
+          {recounting ? "Recounting…" : "Recount from recipes"}
+        </button>
+      </div>
+
+      <div className="rounded-lg border bg-white">
+        <div className="grid grid-cols-[1fr_auto] gap-2 px-3 py-2 border-b font-medium text-sm">
+          <div>Tag</div>
+          <div className="text-right">Count</div>
+        </div>
+        <div className="max-h-[60vh] overflow-auto divide-y">
+          {tags.map((t) => (
+            <div key={t.tag} className="grid grid-cols-[1fr_auto] gap-2 px-3 py-2 text-sm">
+              <div className="truncate">{t.tag}</div>
+              <div className="text-right tabular-nums">{t.count}</div>
+            </div>
+          ))}
+          {!loading && tags.length === 0 && (
+            <div className="px-3 py-6 text-sm text-gray-500">No tags found.</div>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 /* ───────────────────────────────── Main Admin Page ───────────────────────────────── */
 
 const SECTIONS = [
   { key: "recipes", label: "Recipes" },
   { key: "users", label: "Users" },
-  { key: "tags", label: "Tags", disabled: true }, // placeholder
-  { key: "settings", label: "Settings", disabled: true }, // placeholder
+  { key: "tags", label: "Tags" },        // ✅ enabled
+  { key: "settings", label: "Settings", disabled: true }, // placeholder for later
 ];
 
 export default function Admin() {
@@ -366,7 +448,7 @@ export default function Admin() {
 
   // recipes
   const [recipes, setRecipes] = useState([]);
-  const [rTotal, setRTotal] = useState(0);
+  the [rTotal, setRTotal] = useState(0);
   const [rLoading, setRLoading] = useState(false);
 
   // editor
@@ -414,6 +496,7 @@ export default function Admin() {
   useEffect(() => {
     if (section === "recipes") loadRecipes();
     if (section === "users") loadUsers();
+    // (Tags panel loads itself)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [section, query, page]);
 
@@ -483,7 +566,6 @@ export default function Admin() {
           await admin.deleteRecipe(id);
           show("Recipe deleted");
           closeConfirm();
-          // refresh (and handle page bounce if needed)
           if (recipes.length === 1 && page > 1) setPage((p) => Math.max(1, p - 1));
           else loadRecipes();
         } catch {
@@ -524,7 +606,7 @@ export default function Admin() {
 
   return (
     <div className="max-w-[1200px] mx-auto p-4">
-      <PageHeader title="Admin Panel" subtitle="Manage recipes and users." />
+      <PageHeader title="Admin Panel" subtitle="Manage recipes, users, and tags." />
 
       <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] gap-4">
         {/* Sidebar */}
@@ -562,28 +644,30 @@ export default function Admin() {
         {/* Main */}
         <section>
           {/* Toolbar */}
-          <div className="rounded-2xl border bg-white p-3 shadow-sm flex flex-wrap items-center gap-2">
-            <input
-              className="rounded-md border px-3 py-2 text-sm flex-1 min-w-[220px]"
-              placeholder={`Search ${section}…`}
-              value={query}
-              onChange={(e) => {
-                setQuery(e.target.value);
-                setPage(1);
-              }}
-            />
-            {section === "recipes" && (
-              <button
-                onClick={openCreate}
-                className="rounded-md bg-blue-600 text-white px-3 py-2 text-sm hover:bg-blue-700"
-              >
-                New Recipe
-              </button>
-            )}
-            {total > 0 && <div className="ml-auto text-sm text-gray-600">{total} {section}</div>}
-          </div>
+          {section !== "tags" && (
+            <div className="rounded-2xl border bg-white p-3 shadow-sm flex flex-wrap items-center gap-2">
+              <input
+                className="rounded-md border px-3 py-2 text-sm flex-1 min-w-[220px]"
+                placeholder={`Search ${section}…`}
+                value={query}
+                onChange={(e) => {
+                  setQuery(e.target.value);
+                  setPage(1);
+                }}
+              />
+              {section === "recipes" && (
+                <button
+                  onClick={openCreate}
+                  className="rounded-md bg-blue-600 text-white px-3 py-2 text-sm hover:bg-blue-700"
+                >
+                  New Recipe
+                </button>
+              )}
+              {total > 0 && <div className="ml-auto text-sm text-gray-600">{total} {section}</div>}
+            </div>
+          )}
 
-          {/* Tables */}
+          {/* Sections */}
           {section === "recipes" ? (
             <div className="mt-3 rounded-2xl border bg-white overflow-hidden shadow-sm">
               <div className="max-h-[70vh] overflow-auto">
@@ -709,6 +793,10 @@ export default function Admin() {
                   Next
                 </button>
               </div>
+            </div>
+          ) : section === "tags" ? (
+            <div className="mt-3">
+              <AdminTagsPanel />
             </div>
           ) : (
             <div className="mt-3 rounded-2xl border bg-white p-6 text-gray-500">Coming soon.</div>
