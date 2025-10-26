@@ -12,7 +12,7 @@ import usePrefetchOnVisible from "../hooks/usePrefetchOnVisible";
 
 const DIFFICULTY_OPTIONS = ["", "easy", "medium", "hard"]; // "" = Any
 
-// ✅ Child card (safe for hooks)
+// ✅ RecipeCard Component
 const RecipeCard = memo(function RecipeCard({ r }) {
   const prefetchRef = usePrefetchOnVisible(() => prefetchRecipe(r._id));
   const tags = Array.isArray(r.tags) ? r.tags : [];
@@ -32,7 +32,13 @@ const RecipeCard = memo(function RecipeCard({ r }) {
           motion-reduce:transform-none motion-reduce:transition-none
         "
       >
-        <Thumb src={r.imageUrl} alt={r.title} />
+        <Thumb
+          src={r.imageUrl}
+          alt={r.title}
+          recipeId={r._id}
+          title={r.title}
+          tags={tags}
+        />
 
         <div className="mt-3">
           <div className="flex items-start justify-between gap-3">
@@ -52,12 +58,9 @@ const RecipeCard = memo(function RecipeCard({ r }) {
               : "No ratings yet"}
           </div>
 
-          {/* quick meta line (tags as comma-separated) */}
-          <div className="mt-1 text-xs text-gray-600 clamp-1">
-            {tags.join(", ")}
-          </div>
+          {/* Tags */}
+          <div className="mt-1 text-xs text-gray-600 clamp-1">{tags.join(", ")}</div>
 
-          {/* tag pills (first 2) */}
           <div className="mt-2 flex flex-wrap gap-1.5">
             {tags.slice(0, 2).map((t, i) => (
               <Badge key={`${r._id}-tag-${t || "untagged"}-${i}`} variant="blue">
@@ -79,10 +82,8 @@ export default function Recipes() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // URL params
   const params = useMemo(() => new URLSearchParams(location.search), [location.search]);
 
-  // Filters
   const [difficulty, setDifficulty] = useState(params.get("difficulty") || "");
   const [tag, setTag] = useState(params.get("tag") || "");
   const [maxTime, setMaxTime] = useState(params.get("maxTime") || "");
@@ -90,18 +91,15 @@ export default function Recipes() {
   const [page, setPage] = useState(Number(params.get("page") || 1));
   const pageSize = 12;
 
-  // Data
   const [tagCounts, setTagCounts] = useState([]);
   const [items, setItems] = useState([]);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
-
-  // UI
   const [loading, setLoading] = useState(false);
   const [tagsLoading, setTagsLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // Sync state with URL
+  // Sync URL → state
   useEffect(() => {
     const qp = new URLSearchParams(location.search);
     setPage(Number(qp.get("page") || 1));
@@ -111,7 +109,7 @@ export default function Recipes() {
     setDiet(qp.get("diet") || "");
   }, [location.search]);
 
-  // Load tag counts
+  // Fetch tag counts
   useEffect(() => {
     (async () => {
       try {
@@ -142,13 +140,14 @@ export default function Recipes() {
       setError("");
       try {
         const data = await fetchRecipes({
-          difficulty: params.get("difficulty") || "",
-          tag: params.get("tag") || "",
-          maxTime: params.get("maxTime") || "",
-          diet: params.get("diet") || "",
+          difficulty,
+          tag,
+          maxTime,
+          diet,
           page,
           pageSize,
         });
+        // ✅ Replace, not append → fixes duplication
         setItems(data.items || []);
         setTotalPages(data.totalPages || 1);
         setTotal(data.total || 0);
@@ -158,10 +157,9 @@ export default function Recipes() {
         setLoading(false);
       }
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location.search, page]);
+  }, [difficulty, tag, maxTime, diet, page]);
 
-  // Update URL filters
+  // Update URL with filters
   const applyFilters = (next) => {
     const q = new URLSearchParams();
     if (next.difficulty) q.set("difficulty", next.difficulty);
@@ -169,7 +167,7 @@ export default function Recipes() {
     if (next.maxTime) q.set("maxTime", next.maxTime);
     if (next.diet) q.set("diet", next.diet);
     q.set("page", "1");
-    navigate({ pathname: "/recipes", search: `?${q.toString()}` }, { replace: false });
+    navigate({ pathname: "/recipes", search: `?${q.toString()}` });
   };
 
   // Pagination
@@ -193,10 +191,7 @@ export default function Recipes() {
 
         {/* Difficulty */}
         <div>
-          <label
-            htmlFor="difficulty"
-            className="block text-sm font-medium text-gray-700 mb-1"
-          >
+          <label htmlFor="difficulty" className="block text-sm font-medium text-gray-700 mb-1">
             Difficulty
           </label>
           <select
@@ -217,7 +212,7 @@ export default function Recipes() {
           </select>
         </div>
 
-        {/* Max time */}
+        {/* Max Time */}
         <div>
           <label htmlFor="maxTime" className="block text-sm font-medium text-gray-700 mb-1">
             Max time (mins)
@@ -298,7 +293,7 @@ export default function Recipes() {
         )}
       </fieldset>
 
-      {/* Status */}
+      {/* Status + Results */}
       {error && <div className="text-red-600 mb-2">{error}</div>}
       {!loading && total > 0 && (
         <div className="text-sm text-gray-600 mb-2">
@@ -306,7 +301,6 @@ export default function Recipes() {
         </div>
       )}
 
-      {/* Skeleton */}
       {loading && (
         <ul className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-3">
           {Array.from({ length: 6 }).map((_, i) => (
@@ -321,7 +315,6 @@ export default function Recipes() {
         </ul>
       )}
 
-      {/* Results */}
       {!loading && (
         <>
           <ul className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-3">

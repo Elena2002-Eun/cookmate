@@ -6,6 +6,12 @@ import { TOAST } from "../utils/toast";
 import * as admin from "../services/admin"; // listRecipes, createRecipe, updateRecipe, deleteRecipe, listUsers, setUserRole
 import Thumb from "../components/Thumb";
 import api from "../services/api";
+import {
+  getSettings,
+  saveSettings,
+  onSettingsChange,
+  defaultSettings,
+} from "../utils/settings";
 
 /* ───────────────────────── Helpers / Small Components ───────────────────────── */
 
@@ -25,7 +31,12 @@ function ConfirmModal({
 }) {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-[100] bg-black/40" onClick={onClose} role="dialog" aria-modal="true">
+    <div
+      className="fixed inset-0 z-[100] bg-black/40"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+    >
       <div
         className="absolute inset-4 md:inset-1/4 rounded-2xl bg-white p-5 shadow-xl"
         onClick={(e) => e.stopPropagation()}
@@ -135,14 +146,22 @@ function RecipeEditorModal({ open, initial, onClose, onSave }) {
 
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-[95] bg-black/40" onClick={onClose} role="dialog" aria-modal="true">
+    <div
+      className="fixed inset-0 z-[95] bg-black/40"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+    >
       <div
         className="absolute inset-4 lg:inset-10 rounded-2xl bg-white p-5 lg:p-8 shadow-xl overflow-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-lg font-semibold">{model?._id ? "Edit Recipe" : "New Recipe"}</h2>
-          <button onClick={onClose} className="rounded-md border px-3 py-1.5 text-sm hover:bg-gray-50">
+          <button
+            onClick={onClose}
+            className="rounded-md border px-3 py-1.5 text-sm hover:bg-gray-50"
+          >
             Close
           </button>
         </div>
@@ -304,7 +323,10 @@ function RecipeEditorModal({ open, initial, onClose, onSave }) {
                     value={Number(st.durationSec || 0)}
                     onChange={(e) => {
                       const list = [...(model.steps || [])];
-                      list[idx] = { ...list[idx], durationSec: Number(e.target.value || 0) };
+                      list[idx] = {
+                        ...list[idx],
+                        durationSec: Number(e.target.value || 0),
+                      };
                       setModel({ ...model, steps: list });
                     }}
                   />
@@ -332,7 +354,10 @@ function RecipeEditorModal({ open, initial, onClose, onSave }) {
           >
             {saving ? "Saving…" : "Save"}
           </button>
-          <button onClick={onClose} className="rounded-md border px-3 py-1.5 text-sm hover:bg-gray-50">
+          <button
+            onClick={onClose}
+            className="rounded-md border px-3 py-1.5 text-sm hover:bg-gray-50"
+          >
             Cancel
           </button>
         </div>
@@ -341,85 +366,189 @@ function RecipeEditorModal({ open, initial, onClose, onSave }) {
   );
 }
 
-/* ─────────────────────────────── Tags Panel ─────────────────────────────── */
-
+/* ─────────────────────────────── Tags Panel (Safe) ─────────────────────────────── */
 function AdminTagsPanel() {
-  const [tags, setTags] = useState([]);
+  const [rows, setRows] = useState([]); // [{ tag, count }]
   const [loading, setLoading] = useState(false);
-  const [recounting, setRecounting] = useState(false);
+  const [error, setError] = useState("");
 
-  async function load() {
+  // normalize any backend shape into [{tag, count}]
+  function normalizeTags(data) {
+    const arr = Array.isArray(data)
+      ? data
+      : Array.isArray(data?.items)
+      ? data.items
+      : [];
+
+    return arr
+      .map((x) => {
+        if (x && typeof x === "object") {
+          const tag = String(x.tag ?? x._id ?? "").trim();
+          const count = Number(x.count ?? x.total ?? x.value ?? 0);
+          if (!tag) return null;
+          return { tag, count: Number.isFinite(count) ? count : 0 };
+        }
+        if (typeof x === "string") return { tag: x, count: 0 };
+        return null;
+      })
+      .filter(Boolean);
+  }
+
+  async function fetchFirstAvailable() {
     setLoading(true);
+    setError("");
     try {
-      // Public endpoint that either uses tag_counts (if present) or live aggregation
-      const { data } = await api.get("/api/recipes/tag-counts");
-      setTags(Array.isArray(data) ? data : []);
+      // Try admin endpoint first
+      let res = await api.get("/api/admin/tags/counts").catch(() => ({ data: null }));
+      let data = res?.data;
+      if (!data) {
+        // Fallback to public route
+        const res2 = await api.get("/api/recipes/tag-counts");
+        data = res2?.data;
+      }
+      const normalized = normalizeTags(data);
+      setRows(normalized);
+      // empty is fine; not an error
+    } catch (e) {
+      console.error("Tags load failed:", e);
+      setRows([]);
+      setError("Failed to load tag counts.");
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
-    load();
+    fetchFirstAvailable();
   }, []);
-
-  async function onRecount() {
-    if (!window.confirm("Recompute tag_counts from recipes now?")) return;
-    setRecounting(true);
-    try {
-      // Optional admin endpoint. If you haven't implemented it yet, this will 404.
-      await api.post("/api/admin/tags/recount");
-      await load();
-      alert("Recount complete.");
-    } catch (e) {
-      alert(
-        e?.response?.status === 404
-          ? "Recount endpoint not implemented on the server yet."
-          : "Recount failed."
-      );
-    } finally {
-      setRecounting(false);
-    }
-  }
 
   return (
     <section className="space-y-3">
       <div className="flex items-center gap-2">
         <h2 className="text-lg font-semibold">Tags</h2>
         <button
-          onClick={load}
+          onClick={fetchFirstAvailable}
           className="rounded-md border px-3 py-1 text-sm hover:bg-gray-50"
           disabled={loading}
         >
           {loading ? "Refreshing…" : "Refresh"}
         </button>
-        <button
-          onClick={onRecount}
-          className="rounded-md bg-blue-600 text-white px-3 py-1 text-sm hover:bg-blue-700 disabled:opacity-60"
-          disabled={recounting}
-        >
-          {recounting ? "Recounting…" : "Recount from recipes"}
-        </button>
       </div>
 
-      <div className="rounded-lg border bg-white">
+      <div className="rounded-lg border bg-white overflow-hidden">
         <div className="grid grid-cols-[1fr_auto] gap-2 px-3 py-2 border-b font-medium text-sm">
           <div>Tag</div>
           <div className="text-right">Count</div>
         </div>
+
+        {error && <div className="px-3 py-3 text-sm text-red-600">{error}</div>}
+
         <div className="max-h-[60vh] overflow-auto divide-y">
-          {tags.map((t) => (
-            <div key={t.tag} className="grid grid-cols-[1fr_auto] gap-2 px-3 py-2 text-sm">
-              <div className="truncate">{t.tag}</div>
-              <div className="text-right tabular-nums">{t.count}</div>
-            </div>
-          ))}
-          {!loading && tags.length === 0 && (
+          {loading && <div className="px-3 py-6 text-sm text-gray-500">Loading…</div>}
+          {!loading && !error && rows.length === 0 && (
             <div className="px-3 py-6 text-sm text-gray-500">No tags found.</div>
           )}
+          {!loading &&
+            rows.map((t, i) => (
+              <div
+                key={`${t.tag}-${i}`}
+                className="grid grid-cols-[1fr_auto] gap-2 px-3 py-2 text-sm"
+              >
+                <div className="truncate">{t.tag}</div>
+                <div className="text-right tabular-nums">{t.count}</div>
+              </div>
+            ))}
         </div>
       </div>
     </section>
+  );
+}
+
+/* ───────────────────────────────── Settings Panel (client-only) ───────────────────────────────── */
+function SettingsPanel({ onAfterSave }) {
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [model, setModel] = useState(defaultSettings);
+
+  useEffect(() => {
+    setModel(getSettings());
+    setLoading(false);
+    const off = onSettingsChange((s) => setModel(s));
+    return off;
+  }, []);
+
+  const save = async () => {
+    try {
+      setSaving(true);
+      const clamped = {
+        ...model,
+        defaultPageSize: Math.min(100, Math.max(5, Number(model.defaultPageSize || 12))),
+      };
+        // persist to local storage (client-only)
+      const saved = saveSettings(clamped);
+      onAfterSave?.(saved);
+      alert("Settings saved.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) return <div className="rounded-2xl border bg-white p-4">Loading…</div>;
+
+  return (
+    <div className="rounded-2xl border bg-white p-4 shadow-sm max-w-2xl">
+      <h2 className="text-lg font-semibold">Settings</h2>
+
+      <div className="mt-4 space-y-4">
+        <div>
+          <label className="block text-sm mb-1">Site name</label>
+          <input
+            className="w-full rounded-md border px-3 py-2 text-sm"
+            value={model.siteName}
+            onChange={(e) => setModel({ ...model, siteName: e.target.value })}
+            placeholder="CookMate"
+          />
+        </div>
+
+        <div className="flex items-center gap-2">
+          <input
+            id="assistantEnabled"
+            type="checkbox"
+            className="h-4 w-4"
+            checked={!!model.assistantEnabled}
+            onChange={(e) => setModel({ ...model, assistantEnabled: e.target.checked })}
+          />
+          <label htmlFor="assistantEnabled" className="text-sm">
+            Enable Assistant
+          </label>
+        </div>
+
+        <div>
+          <label className="block text-sm mb-1">Default page size</label>
+          <input
+            type="number"
+            min={5}
+            max={100}
+            className="w-28 rounded-md border px-3 py-2 text-sm"
+            value={model.defaultPageSize}
+            onChange={(e) =>
+              setModel({ ...model, defaultPageSize: Number(e.target.value || 12) })
+            }
+          />
+          <p className="mt-1 text-xs text-gray-500">Used by Admin tables (Recipes/Users).</p>
+        </div>
+
+        <div className="pt-2">
+          <button
+            onClick={save}
+            disabled={saving}
+            className="rounded-md bg-blue-600 text-white px-4 py-2 text-sm hover:bg-blue-700 disabled:opacity-60"
+          >
+            {saving ? "Saving…" : "Save Settings"}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -428,8 +557,8 @@ function AdminTagsPanel() {
 const SECTIONS = [
   { key: "recipes", label: "Recipes" },
   { key: "users", label: "Users" },
-  { key: "tags", label: "Tags" },        // ✅ enabled
-  { key: "settings", label: "Settings", disabled: true }, // placeholder for later
+  { key: "tags", label: "Tags" },
+  { key: "settings", label: "Settings" }, // enabled
 ];
 
 export default function Admin() {
@@ -441,14 +570,18 @@ export default function Admin() {
   // shared search/pagination
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
-  const pageSize = 12;
+  const [pageSize, setPageSize] = useState(getSettings().defaultPageSize || 12);
+  useEffect(() => {
+    const off = onSettingsChange((s) => setPageSize(s.defaultPageSize || 12));
+    return off;
+  }, []);
 
   // stats (from your API directly)
   const [stats, setStats] = useState(null);
 
   // recipes
   const [recipes, setRecipes] = useState([]);
-  the [rTotal, setRTotal] = useState(0);
+  const [rTotal, setRTotal] = useState(0);
   const [rLoading, setRLoading] = useState(false);
 
   // editor
@@ -496,9 +629,9 @@ export default function Admin() {
   useEffect(() => {
     if (section === "recipes") loadRecipes();
     if (section === "users") loadUsers();
-    // (Tags panel loads itself)
+    // (Tags and Settings panels load themselves)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [section, query, page]);
+  }, [section, query, page, pageSize]);
 
   async function loadRecipes() {
     try {
@@ -532,7 +665,10 @@ export default function Admin() {
     setEditorOpen(true);
   };
   const openEdit = (r) => {
-    const copy = typeof structuredClone === "function" ? structuredClone(r) : JSON.parse(JSON.stringify(r));
+    const copy =
+      typeof structuredClone === "function"
+        ? structuredClone(r)
+        : JSON.parse(JSON.stringify(r));
     setEditing(copy);
     setEditorOpen(true);
   };
@@ -606,7 +742,7 @@ export default function Admin() {
 
   return (
     <div className="max-w-[1200px] mx-auto p-4">
-      <PageHeader title="Admin Panel" subtitle="Manage recipes, users, and tags." />
+      <PageHeader title="Admin Panel" subtitle="Manage recipes, users, tags, and settings." />
 
       <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] gap-4">
         {/* Sidebar */}
@@ -615,12 +751,10 @@ export default function Admin() {
             {SECTIONS.map((s) => (
               <button
                 key={s.key}
-                disabled={s.disabled}
                 onClick={() => setSection(s.key)}
                 className={classNames(
                   "w-full text-left rounded-md px-3 py-2 text-sm",
-                  s.key === section ? "bg-blue-600 text-white" : "hover:bg-gray-50",
-                  s.disabled && "opacity-50 cursor-not-allowed"
+                  s.key === section ? "bg-blue-600 text-white" : "hover:bg-gray-50"
                 )}
               >
                 {s.label}
@@ -643,8 +777,8 @@ export default function Admin() {
 
         {/* Main */}
         <section>
-          {/* Toolbar */}
-          {section !== "tags" && (
+          {/* Toolbar (hide on Tags & Settings) */}
+          {section !== "tags" && section !== "settings" && (
             <div className="rounded-2xl border bg-white p-3 shadow-sm flex flex-wrap items-center gap-2">
               <input
                 className="rounded-md border px-3 py-2 text-sm flex-1 min-w-[220px]"
@@ -663,7 +797,11 @@ export default function Admin() {
                   New Recipe
                 </button>
               )}
-              {total > 0 && <div className="ml-auto text-sm text-gray-600">{total} {section}</div>}
+              {total > 0 && (
+                <div className="ml-auto text-sm text-gray-600">
+                  {total} {section}
+                </div>
+              )}
             </div>
           )}
 
@@ -683,9 +821,19 @@ export default function Admin() {
                     </tr>
                   </thead>
                   <tbody>
-                    {loading && <tr><td colSpan={6} className="p-4">Loading…</td></tr>}
+                    {loading && (
+                      <tr>
+                        <td colSpan={6} className="p-4">
+                          Loading…
+                        </td>
+                      </tr>
+                    )}
                     {!loading && recipes.length === 0 && (
-                      <tr><td colSpan={6} className="p-4 text-gray-500">No recipes</td></tr>
+                      <tr>
+                        <td colSpan={6} className="p-4 text-gray-500">
+                          No recipes
+                        </td>
+                      </tr>
                     )}
                     {recipes.map((r) => (
                       <tr key={r._id} className="border-b hover:bg-gray-50">
@@ -695,7 +843,9 @@ export default function Admin() {
                           </div>
                         </td>
                         <td className="p-2 font-medium">{r.title}</td>
-                        <td className="p-2 text-gray-600">{(r.tags || []).join(", ") || "—"}</td>
+                        <td className="p-2 text-gray-600">
+                          {(r.tags || []).join(", ") || "—"}
+                        </td>
                         <td className="p-2">{r.difficulty || "—"}</td>
                         <td className="p-2">{r.prepTimeMin || 0}m</td>
                         <td className="p-2 text-right">
@@ -751,16 +901,28 @@ export default function Admin() {
                     </tr>
                   </thead>
                   <tbody>
-                    {loading && <tr><td colSpan={5} className="p-4">Loading…</td></tr>}
+                    {loading && (
+                      <tr>
+                        <td colSpan={5} className="p-4">
+                          Loading…
+                        </td>
+                      </tr>
+                    )}
                     {!loading && users.length === 0 && (
-                      <tr><td colSpan={5} className="p-4 text-gray-500">No users</td></tr>
+                      <tr>
+                        <td colSpan={5} className="p-4 text-gray-500">
+                          No users
+                        </td>
+                      </tr>
                     )}
                     {users.map((u) => (
                       <tr key={u._id} className="border-b hover:bg-gray-50">
                         <td className="p-2">{u.email}</td>
                         <td className="p-2">{u.displayName || "—"}</td>
                         <td className="p-2">{u.role || "user"}</td>
-                        <td className="p-2">{u.createdAt ? new Date(u.createdAt).toLocaleDateString() : "—"}</td>
+                        <td className="p-2">
+                          {u.createdAt ? new Date(u.createdAt).toLocaleDateString() : "—"}
+                        </td>
                         <td className="p-2 text-right">
                           <button
                             onClick={() => askToggleRole(u)}
@@ -798,14 +960,25 @@ export default function Admin() {
             <div className="mt-3">
               <AdminTagsPanel />
             </div>
+          ) : section === "settings" ? (
+            <div className="mt-3">
+              <SettingsPanel onAfterSave={(s) => setPageSize(s.defaultPageSize || 12)} />
+            </div>
           ) : (
-            <div className="mt-3 rounded-2xl border bg-white p-6 text-gray-500">Coming soon.</div>
+            <div className="mt-3 rounded-2xl border bg-white p-6 text-gray-500">
+              Coming soon.
+            </div>
           )}
         </section>
       </div>
 
       {/* Modals */}
-      <RecipeEditorModal open={editorOpen} initial={editing} onClose={closeEditor} onSave={saveRecipe} />
+      <RecipeEditorModal
+        open={editorOpen}
+        initial={editing}
+        onClose={closeEditor}
+        onSave={saveRecipe}
+      />
       <ConfirmModal {...confirm} />
       <ToastPortal />
     </div>
