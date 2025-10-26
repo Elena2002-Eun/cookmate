@@ -35,3 +35,7 @@ node_modules/
 
 public/models/
 >>>>>>> 7a223884c178f1722029a83d4b5e603ff4d77a0e
+
+# Ignore local AI models
+public/models/
+**/*.onnx
