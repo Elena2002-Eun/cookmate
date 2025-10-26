@@ -1,0 +1,37 @@
+{
+  "name": "cookmate-backend",
+  "version": "1.0.0",
+  "description": "CookMate backend API",
+  "main": "src/index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
+    "test": "echo \"No tests configured\" && exit 0",
+    "backup:recipes": "node scripts/backupRecipes.js",
+    "update:steps:dry": "node scripts/updateAllRecipesSteps.js --dry",
+    "update:steps": "node scripts/updateAllRecipesSteps.js",
+    "update:steps:force": "node scripts/updateAllRecipesSteps.js --force",
+    "autotag:dry": "node scripts/autoTagAllergens.js --dry",
+    "autotag:write": "node scripts/autoTagAllergens.js --write"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.19.1",
+    "natural": "^8.1.0",
+    "openai": "^6.6.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.10"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

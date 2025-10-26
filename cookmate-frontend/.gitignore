@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # Logs
 logs
 *.log
@@ -27,11 +26,3 @@ node_modules
 dist
 .env
 .DS_Store
-=======
-node_modules/
-.env
-node_modules/
-.env
-
-public/models/
->>>>>>> 7a223884c178f1722029a83d4b5e603ff4d77a0e
